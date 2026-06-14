@@ -1,0 +1,117 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  addTeacherStudentRequestSchema,
+  createTeacherEvaluationRequestSchema,
+  createTeacherTaskRequestSchema,
+  teacherEvaluationSchema,
+  teacherStudentSchema,
+  teacherTaskOverviewSchema,
+  teacherTaskSchema,
+} from '../src/index'
+
+describe('teacher task contracts', () => {
+  it('validates class roster, task, evaluation and overview payloads', () => {
+    const student = teacherStudentSchema.parse({
+      id: 'student_teacher_demo_ru_learner_demo_20260614000000',
+      teacherId: 'teacher_demo_ru',
+      learnerId: 'learner_demo_20260614000000',
+      displayName: '登录学习者',
+      accountType: 'registered',
+      joinedAt: '2026-06-14T00:00:00.000Z',
+    })
+
+    const task = teacherTaskSchema.parse({
+      id: 'task_teacher_demo_ru_book_pep_ru_g7_a_unit_1',
+      teacherId: 'teacher_demo_ru',
+      title: '七年级上册第 1 单元背词任务',
+      vocabularyBookId: 'book_pep_ru_g7_a',
+      unit: '1',
+      dailyNewWordTarget: 2,
+      dueDate: '2026-06-21',
+      assignedStudentIds: [student.id],
+      status: 'active',
+      createdAt: '2026-06-14T00:00:00.000Z',
+    })
+
+    const evaluation = teacherEvaluationSchema.parse({
+      id: `eval_${task.id}_${student.id}`,
+      teacherId: 'teacher_demo_ru',
+      taskId: task.id,
+      studentId: student.id,
+      rating: 'great',
+      comment: '词义掌握稳定，继续保持。',
+      createdAt: '2026-06-14T00:05:00.000Z',
+    })
+
+    expect(
+      teacherTaskOverviewSchema.parse({
+        task,
+        students: [
+          {
+            student,
+            assignedWordCount: 2,
+            recitedWordCount: 1,
+            masteredWordCount: 1,
+            correctRate: 1,
+            completionRate: 0.5,
+            evaluationRating: evaluation.rating,
+            evaluationComment: evaluation.comment,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      task: {
+        title: '七年级上册第 1 单元背词任务',
+      },
+      students: [
+        {
+          student: {
+            displayName: '登录学习者',
+          },
+          evaluationComment: '词义掌握稳定，继续保持。',
+        },
+      ],
+    })
+  })
+
+  it('validates teacher write requests before API handlers use them', () => {
+    expect(
+      addTeacherStudentRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        learnerId: 'learner_demo_20260614000000',
+      }),
+    ).toEqual({
+      teacherId: 'teacher_demo_ru',
+      learnerId: 'learner_demo_20260614000000',
+    })
+
+    expect(
+      createTeacherTaskRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        title: '七年级上册第 1 单元背词任务',
+        vocabularyBookId: 'book_pep_ru_g7_a',
+        unit: '1',
+        dailyNewWordTarget: 2,
+        dueDate: '2026-06-21',
+        studentIds: ['student_teacher_demo_ru_learner_demo_20260614000000'],
+      }),
+    ).toMatchObject({
+      teacherId: 'teacher_demo_ru',
+      studentIds: ['student_teacher_demo_ru_learner_demo_20260614000000'],
+    })
+
+    expect(
+      createTeacherEvaluationRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        taskId: 'task_teacher_demo_ru_book_pep_ru_g7_a_unit_1',
+        studentId: 'student_teacher_demo_ru_learner_demo_20260614000000',
+        rating: 'great',
+        comment: '词义掌握稳定，继续保持。',
+      }),
+    ).toMatchObject({
+      rating: 'great',
+      comment: '词义掌握稳定，继续保持。',
+    })
+  })
+})

@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SystemEvent {
+  id        String   @id @default(cuid())
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+}
+
+model VocabularyBook {
+  id              String            @id
+  slug            String            @unique
+  name            String
+  language        String
+  educationStage  String
+  grade           String
+  publisher       String
+  textbookVersion String
+  volume          String
+  description     String
+  source          String
+  version         Int
+  publishedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  units           VocabularyUnit[]
+  words           RussianWord[]
+  studyPlans      StudyPlan[]
+  studySessions   StudySession[]
+  teacherTasks    TeacherTask[]
+  scoreEvents     StudyScoreEvent[]
+
+  @@index([publisher, textbookVersion, educationStage])
+}
+
+model VocabularyUnit {
+  id        String         @id @default(cuid())
+  bookId    String
+  unit      String
+  unitTitle String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  book      VocabularyBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  words     RussianWord[]
+
+  @@unique([bookId, unit])
+  @@index([bookId, unit])
+}
+
+model RussianWord {
+  id            String             @id
+  bookId        String
+  unitId        String
+  lesson        String
+  lemma         String
+  stressedLemma String?
+  transcription String?
+  partOfSpeech  String
+  gender        String?
+  pluralForm    String?
+  aspect        String?
+  aspectPair    String?
+  conjugation   String?
+  definitionZh  String
+  usageNote     String?
+  exampleRu     String?
+  exampleZh     String?
+  audioUrl      String?
+  imageUrl      String?
+  source        String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  book          VocabularyBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  unit          VocabularyUnit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  studyReviews  StudyReview[]
+  wordProgress  UserWordProgress[]
+  scoreEvents   StudyScoreEvent[]
+
+  @@unique([bookId, lemma])
+  @@index([bookId, unitId, lesson])
+}
+
+model Learner {
+  id                String                 @id
+  displayName       String
+  accountType       String
+  role              String
+  timezone          String
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  preferences       UserPreferences?
+  studyPlans        StudyPlan[]
+  sessions          StudySession[]
+  wordProgress      UserWordProgress[]
+  teacherStudents   TeacherStudent[]
+  scoreEvents       StudyScoreEvent[]
+  checkins          CheckinRecord[]
+  offlineOperations OfflineSyncOperation[]
+}
+
+model TeacherAccount {
+  id          String              @id
+  displayName String
+  accountType String
+  role        String
+  timezone    String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  students    TeacherStudent[]
+  tasks       TeacherTask[]
+  evaluations TeacherEvaluation[]
+}
+
+model TeacherStudent {
+  id          String                  @id
+  teacherId   String
+  learnerId   String
+  displayName String
+  accountType String
+  joinedAt    DateTime
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  teacher     TeacherAccount          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  learner     Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  assignments TeacherTaskAssignment[]
+  evaluations TeacherEvaluation[]
+
+  @@unique([teacherId, learnerId])
+  @@index([teacherId])
+  @@index([learnerId])
+}
+
+model TeacherTask {
+  id                 String                  @id
+  teacherId          String
+  title              String
+  vocabularyBookId   String
+  unit               String
+  dailyNewWordTarget Int
+  dueDate            String
+  status             String
+  createdAt          DateTime
+  updatedAt          DateTime                @updatedAt
+  teacher            TeacherAccount          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  book               VocabularyBook          @relation(fields: [vocabularyBookId], references: [id], onDelete: Cascade)
+  assignments        TeacherTaskAssignment[]
+  evaluations        TeacherEvaluation[]
+
+  @@index([teacherId, status])
+  @@index([vocabularyBookId, unit])
+}
+
+model TeacherTaskAssignment {
+  taskId     String
+  studentId  String
+  assignedAt DateTime       @default(now())
+  task       TeacherTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student    TeacherStudent @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, studentId])
+  @@index([studentId])
+}
+
+model TeacherEvaluation {
+  id        String         @id
+  teacherId String
+  taskId    String
+  studentId String
+  rating    String
+  comment   String
+  createdAt DateTime
+  updatedAt DateTime       @updatedAt
+  teacher   TeacherAccount @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  task      TeacherTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student   TeacherStudent @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId, createdAt])
+  @@index([taskId, studentId])
+}
+
+model UserPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  educationStage     String
+  grade              String
+  bookId             String
+  unit               String
+  dailyNewWordTarget Int
+  reminderEnabled    Boolean
+  updatedAt          DateTime @updatedAt
+  user               Learner  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StudyPlan {
+  id                      String         @id
+  userId                  String
+  vocabularyBookId        String
+  unit                    String?
+  dailyNewWordTarget      Int
+  dailyReviewLimit        Int
+  targetDate              String?
+  estimatedCompletionDate String
+  status                  String
+  startedAt               DateTime
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  user                    Learner        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book                    VocabularyBook @relation(fields: [vocabularyBookId], references: [id], onDelete: Cascade)
+  sessions                StudySession[]
+
+  @@index([userId, status])
+  @@index([vocabularyBookId, unit])
+}
+
+model StudySession {
+  id               String            @id
+  userId           String
+  planId           String
+  vocabularyBookId String
+  unit             String?
+  status           String
+  createdAt        DateTime
+  completedAt      DateTime?
+  user             Learner           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             StudyPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  book             VocabularyBook    @relation(fields: [vocabularyBookId], references: [id], onDelete: Cascade)
+  reviews          StudyReview[]
+  scoreEvents      StudyScoreEvent[]
+
+  @@index([userId, status])
+  @@index([vocabularyBookId, unit])
+}
+
+model StudyReview {
+  id            String       @id @default(cuid())
+  sessionId     String
+  wordId        String
+  answerQuality String
+  errorType     String?
+  responseMs    Int
+  createdAt     DateTime     @default(now())
+  session       StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  word          RussianWord  @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([wordId])
+}
+
+model UserWordProgress {
+  userId             String
+  wordId             String
+  masteryState       String
+  repetitions        Int
+  consecutiveCorrect Int
+  correctCount       Int
+  incorrectCount     Int
+  easeFactor         Float
+  intervalDays       Int
+  averageResponseMs  Int?
+  lastErrorType      String?
+  lastReviewedAt     DateTime?
+  nextReviewAt       DateTime?
+  updatedAt          DateTime    @updatedAt
+  user               Learner     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word               RussianWord @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@id([userId, wordId])
+  @@index([masteryState, nextReviewAt])
+}
+
+model StudyScoreEvent {
+  id             String          @id
+  userId         String
+  sessionId      String
+  wordId         String?
+  bookId         String?
+  eventType      String
+  scoreDelta     Int
+  wordCount      Int
+  occurredAt     DateTime
+  idempotencyKey String
+  createdAt      DateTime        @default(now())
+  user           Learner         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session        StudySession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  word           RussianWord?    @relation(fields: [wordId], references: [id], onDelete: SetNull)
+  book           VocabularyBook? @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  @@unique([idempotencyKey, eventType])
+  @@index([userId, occurredAt])
+  @@index([bookId, occurredAt])
+}
+
+model CheckinRecord {
+  id          String   @id
+  userId      String
+  checkinDate String
+  streakDays  Int
+  completedAt DateTime
+  createdAt   DateTime @default(now())
+  user        Learner  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, checkinDate])
+  @@index([checkinDate])
+}
+
+model OfflineSyncOperation {
+  id             String    @id
+  userId         String
+  type           String
+  endpoint       String
+  method         String
+  idempotencyKey String    @unique
+  payload        Json
+  status         String
+  retryCount     Int       @default(0)
+  createdAt      DateTime
+  syncedAt       DateTime?
+  lastError      String?
+  updatedAt      DateTime  @updatedAt
+  user           Learner   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, createdAt])
+}
