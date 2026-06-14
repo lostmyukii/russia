@@ -63,6 +63,19 @@ const baselineItems = [
   },
 ]
 
+const teacherAssignedLearnerAccounts = [
+  {
+    username: 'student01',
+    password: 'ru123456',
+    displayName: '登录学习者',
+  },
+  {
+    username: 'student02',
+    password: 'ru654321',
+    displayName: '访客学习者',
+  },
+] as const
+
 export function App() {
   const vocabularyCatalog = pepRussianVocabularyBooks
   const [routePath, setRoutePath] = useState(getInitialRoutePath)
@@ -90,11 +103,10 @@ export function App() {
       (word) => word.bookId === featuredBook?.id && word.unit === featuredUnit?.unit,
     )
   const [guestUser, setGuestUser] = useState<GuestUser | null>(null)
-  const [phoneLearner, setPhoneLearner] = useState<LearnerAccount | null>(null)
-  const [phoneNumber, setPhoneNumber] = useState('13800000000')
-  const [phoneCodeInput, setPhoneCodeInput] = useState('')
-  const [phoneVerificationCode, setPhoneVerificationCode] = useState<string | null>(null)
-  const [phoneLoginMessage, setPhoneLoginMessage] = useState<string | null>(null)
+  const [assignedLearner, setAssignedLearner] = useState<LearnerAccount | null>(null)
+  const [loginUsername, setLoginUsername] = useState('student01')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginMessage, setLoginMessage] = useState<string | null>(null)
   const [activePlan, setActivePlan] = useState<StudyPlan | null>(null)
   const [studySession, setStudySession] = useState<StudySession | null>(null)
   const [studyResult, setStudyResult] = useState<StudySessionResult | null>(null)
@@ -126,7 +138,7 @@ export function App() {
   const [offlineQueue, setOfflineQueue] = useState<OfflineSyncOperation[]>([])
   const [offlineSyncMessage, setOfflineSyncMessage] = useState<string | null>(null)
   const [offlineServerConfirmed, setOfflineServerConfirmed] = useState(false)
-  const activeLearner = phoneLearner ?? guestUser
+  const activeLearner = assignedLearner ?? guestUser
   const isStudyRoute = routePath.startsWith('/study/session')
   const isStudyResultRoute = routePath.startsWith('/study/result')
   const bookDetailSlug = routePath.startsWith('/books/')
@@ -181,8 +193,8 @@ export function App() {
   }
 
   function startGuestLearning() {
-    setPhoneLearner(null)
-    setPhoneLoginMessage(null)
+    setAssignedLearner(null)
+    setLoginMessage(null)
     setGuestUser(createGuestLearner({ now: new Date().toISOString() }))
   }
 
@@ -191,12 +203,12 @@ export function App() {
     navigateTo('/onboarding')
   }
 
-  function updatePhoneNumber(event: ChangeEvent<HTMLInputElement>) {
-    setPhoneNumber(event.target.value)
+  function updateLoginUsername(event: ChangeEvent<HTMLInputElement>) {
+    setLoginUsername(event.target.value)
   }
 
-  function updatePhoneCodeInput(event: ChangeEvent<HTMLInputElement>) {
-    setPhoneCodeInput(event.target.value)
+  function updateLoginPassword(event: ChangeEvent<HTMLInputElement>) {
+    setLoginPassword(event.target.value)
   }
 
   function updateBookSearch(event: ChangeEvent<HTMLInputElement>) {
@@ -222,38 +234,33 @@ export function App() {
     navigateTo('/onboarding')
   }
 
-  function requestPhoneCode() {
-    const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '')
+  function verifyTeacherAssignedLogin() {
+    const normalizedUsername = loginUsername.trim()
+    const account = teacherAssignedLearnerAccounts.find(
+      (candidate) =>
+        candidate.username === normalizedUsername && candidate.password === loginPassword,
+    )
 
-    if (normalizedPhoneNumber.length !== 11) {
-      setPhoneLoginMessage('请输入 11 位手机号。')
-      setPhoneVerificationCode(null)
+    if (!account) {
+      setLoginMessage('账号或密码不正确，请联系老师。')
       return
     }
 
-    setPhoneNumber(normalizedPhoneNumber)
-    setPhoneVerificationCode('246810')
-    setPhoneLoginMessage('开发验证码：246810')
-  }
-
-  function verifyPhoneCode() {
-    if (!phoneVerificationCode) {
-      setPhoneLoginMessage('请先获取验证码。')
-      return
+    const now = new Date().toISOString()
+    const learner: LearnerAccount = {
+      id: `learner_${account.username}`,
+      displayName: account.displayName,
+      accountType: 'registered',
+      role: 'learner',
+      timezone: 'Asia/Shanghai',
+      createdAt: now,
     }
 
-    if (phoneCodeInput.trim() !== phoneVerificationCode) {
-      setPhoneLoginMessage('验证码不正确。')
-      return
-    }
-
-    const learner = createRegisteredLearner({ now: new Date().toISOString() })
-
-    setPhoneLearner(learner)
+    setAssignedLearner(learner)
     setGuestUser(null)
-    setPhoneLoginMessage(`已登录：${learner.displayName}`)
-    setPhoneVerificationCode(null)
-    setPhoneCodeInput('')
+    setLoginMessage(`已登录：${learner.displayName}`)
+    setLoginUsername(account.username)
+    setLoginPassword('')
     navigateTo('/onboarding')
   }
 
@@ -789,11 +796,10 @@ export function App() {
 
   function clearLocalLearningData() {
     setGuestUser(null)
-    setPhoneLearner(null)
-    setPhoneNumber('13800000000')
-    setPhoneCodeInput('')
-    setPhoneVerificationCode(null)
-    setPhoneLoginMessage(null)
+    setAssignedLearner(null)
+    setLoginUsername('student01')
+    setLoginPassword('')
+    setLoginMessage(null)
     setActivePlan(null)
     setSelectedBookSlug(null)
     setSelectedUnit(null)
@@ -866,52 +872,47 @@ export function App() {
       <main className="auth-shell">
         <section className="auth-card" aria-labelledby="login-title">
           <p className="eyebrow">登录后继续学习</p>
-          <h1 id="login-title">开始你的俄语计划</h1>
-          <p className="auth-copy">用手机验证码登录，或先以访客身份体验完整的新手引导。</p>
+          <h1 id="login-title">账号密码登录</h1>
+          <p className="auth-copy">使用老师分配的学生账号和初始密码登录。</p>
 
-          {phoneLoginMessage ? (
+          {loginMessage ? (
             <p className="login-message" aria-live="polite">
-              {phoneLoginMessage}
+              {loginMessage}
             </p>
           ) : null}
 
-          <div className="auth-form" aria-label="手机验证码登录">
+          <div className="auth-form" aria-label="老师分配账号登录">
             <div className="form-field">
-              <label htmlFor="phone-number">手机号</label>
+              <label htmlFor="login-username">账号</label>
               <input
-                id="phone-number"
-                inputMode="numeric"
-                maxLength={11}
-                value={phoneNumber}
-                onChange={updatePhoneNumber}
+                id="login-username"
+                autoComplete="username"
+                value={loginUsername}
+                onChange={updateLoginUsername}
               />
-              <p className="field-hint">开发环境验证码固定为 246810。</p>
+              <p className="field-hint">示例账号：student01 / ru123456</p>
             </div>
 
             <div className="form-field">
-              <label htmlFor="phone-code">验证码</label>
+              <label htmlFor="login-password">密码</label>
               <input
-                id="phone-code"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="6 位验证码"
-                value={phoneCodeInput}
-                onChange={updatePhoneCodeInput}
+                id="login-password"
+                autoComplete="current-password"
+                type="password"
+                value={loginPassword}
+                onChange={updateLoginPassword}
               />
             </div>
 
             <div className="answer-actions">
-              <button className="secondary-action" type="button" onClick={requestPhoneCode}>
-                获取验证码
-              </button>
-              <button className="primary-action" type="button" onClick={verifyPhoneCode}>
+              <button className="primary-action" type="button" onClick={verifyTeacherAssignedLogin}>
                 登录并继续
               </button>
             </div>
           </div>
 
           <div className="guest-entry">
-            <span>还不想绑定手机号？</span>
+            <span>暂时没有老师分配账号？</span>
             <button className="secondary-action" type="button" onClick={startGuestOnboarding}>
               先体验一下
             </button>
@@ -1616,6 +1617,9 @@ export function App() {
                   学生已添加：{teacherStudents.map((student) => student.displayName).join('、')}
                 </p>
               ) : null}
+              {teacherStudents.length > 0 ? (
+                <TeacherStudentCredentialsList students={teacherStudents} />
+              ) : null}
 
               <div className="progress-list" aria-label="学生背诵进度">
                 {teacherProgress.map((progress) => (
@@ -1695,42 +1699,38 @@ export function App() {
       <section className="login-section" aria-labelledby="login-title">
         <div className="section-heading">
           <p className="eyebrow">登录</p>
-          <h2 id="login-title">手机验证码</h2>
+          <h2 id="login-title">账号密码登录</h2>
         </div>
 
         <article className="login-panel">
-          <div className="login-fields" aria-label="手机验证码登录">
+          <div className="login-fields" aria-label="老师分配账号登录">
             <input
               className="text-input"
-              aria-label="手机号"
-              inputMode="numeric"
-              maxLength={11}
-              value={phoneNumber}
-              onChange={updatePhoneNumber}
+              aria-label="账号"
+              autoComplete="username"
+              value={loginUsername}
+              onChange={updateLoginUsername}
             />
             <input
               className="text-input"
-              aria-label="验证码"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="验证码"
-              value={phoneCodeInput}
-              onChange={updatePhoneCodeInput}
+              aria-label="密码"
+              autoComplete="current-password"
+              placeholder="密码"
+              type="password"
+              value={loginPassword}
+              onChange={updateLoginPassword}
             />
           </div>
 
           <div className="login-actions" aria-label="登录操作">
-            <button className="secondary-action" type="button" onClick={requestPhoneCode}>
-              获取验证码
-            </button>
-            <button className="primary-action" type="button" onClick={verifyPhoneCode}>
+            <button className="primary-action" type="button" onClick={verifyTeacherAssignedLogin}>
               登录
             </button>
           </div>
 
-          {phoneLoginMessage ? (
+          {loginMessage ? (
             <p className="login-message" aria-live="polite">
-              {phoneLoginMessage}
+              {loginMessage}
             </p>
           ) : null}
         </article>
@@ -2036,6 +2036,9 @@ export function App() {
                 学生已添加：{teacherStudents.map((student) => student.displayName).join('、')}
               </p>
             ) : null}
+            {teacherStudents.length > 0 ? (
+              <TeacherStudentCredentialsList students={teacherStudents} />
+            ) : null}
 
             <div className="progress-list" aria-label="学生背诵进度">
               {teacherProgress.map((progress) => (
@@ -2216,6 +2219,20 @@ function LeaderboardPanel({ title, entries }: { title: string; entries: Leaderbo
         ))}
       </div>
     </article>
+  )
+}
+
+function TeacherStudentCredentialsList({ students }: { students: TeacherStudent[] }) {
+  return (
+    <div className="credential-list" aria-label="学生登录账号">
+      {students.map((student) => (
+        <div className="credential-row" key={student.id}>
+          <strong>{student.displayName}</strong>
+          <span>账号：{student.loginUsername}</span>
+          <span>初始密码：{student.initialPassword}</span>
+        </div>
+      ))}
+    </div>
   )
 }
 

@@ -151,6 +151,8 @@ export type TeacherStudent = {
   learnerId: string
   displayName: string
   accountType: LearnerAccount['accountType']
+  loginUsername: string
+  initialPassword: string
   joinedAt: string
 }
 
@@ -537,14 +539,29 @@ export function addStudentToTeacher({
   learner: LearnerAccount
   now: string
 }): TeacherStudent {
+  const loginCredential = createTeacherStudentLoginCredential(learner)
+
   return {
     id: `student_${teacher.id}_${learner.id}`,
     teacherId: teacher.id,
     learnerId: learner.id,
     displayName: learner.displayName,
     accountType: learner.accountType,
+    loginUsername: loginCredential.username,
+    initialPassword: loginCredential.password,
     joinedAt: now,
   }
+}
+
+function createTeacherStudentLoginCredential(learner: LearnerAccount): {
+  username: string
+  password: string
+} {
+  if (learner.accountType === 'registered') {
+    return { username: 'student01', password: 'ru123456' }
+  }
+
+  return { username: 'student02', password: 'ru654321' }
 }
 
 export function createTeacherTask({

@@ -3,17 +3,18 @@ import { describe, expect, it } from 'vitest'
 
 import { App } from './App'
 
-describe('phone verification login', () => {
-  it('lets a learner sign in with the development verification code', () => {
+describe('teacher assigned account login', () => {
+  it('lets a learner sign in with a teacher assigned account and password', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('link', { name: '开始学习' }))
-    fireEvent.change(screen.getByLabelText('手机号'), { target: { value: '13900000000' } })
-    fireEvent.click(screen.getByRole('button', { name: '获取验证码' }))
 
-    expect(screen.getByText('开发验证码：246810')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '账号密码登录' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('手机号')).not.toBeInTheDocument()
+    expect(screen.getByText('示例账号：student01 / ru123456')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('验证码'), { target: { value: '246810' } })
+    fireEvent.change(screen.getByLabelText('账号'), { target: { value: 'student01' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'ru123456' } })
     fireEvent.click(screen.getByRole('button', { name: '登录并继续' }))
 
     expect(screen.getByRole('heading', { name: '生成你的学习计划' })).toBeInTheDocument()

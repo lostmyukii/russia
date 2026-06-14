@@ -649,6 +649,27 @@ h3 {
   line-height: 1.62;
 }
 
+.credential-list {
+  display: grid;
+  gap: 8px;
+}
+
+.credential-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 16px;
+  background: rgba(248, 249, 252, 0.78);
+}
+
+.credential-row span {
+  color: var(--muted);
+  font-weight: 680;
+}
+
 .onboarding-actions,
 .login-actions,
 .study-actions,
@@ -1206,6 +1227,7 @@ h3 {
 
   .progress-row,
   .task-row,
+  .credential-row,
   .book-row {
     grid-template-columns: 1fr;
   }
