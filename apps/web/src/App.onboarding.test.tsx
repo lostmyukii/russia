@@ -1,8 +1,12 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
 import { createGuestStudyPlan, enterAsGuest } from './test-utils'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('onboarding flow', () => {
   it('lets a guest learner create a PEP Russian study plan', () => {
@@ -63,5 +67,37 @@ describe('onboarding flow', () => {
 
     expect(screen.getByRole('heading', { name: '学习结果' })).toBeInTheDocument()
     expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
+  })
+
+  it('plays Russian pronunciation for the current study card', () => {
+    type SpokenUtterance = { lang: string; text: string }
+
+    const speak = vi.fn<(utterance: SpokenUtterance) => void>()
+    const cancel = vi.fn<() => void>()
+
+    class TestSpeechSynthesisUtterance {
+      lang = ''
+      pitch = 1
+      rate = 1
+      text: string
+
+      constructor(text: string) {
+        this.text = text
+      }
+    }
+
+    vi.stubGlobal('speechSynthesis', { cancel, speak })
+    vi.stubGlobal('SpeechSynthesisUtterance', TestSpeechSynthesisUtterance)
+
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始今日学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '播放读音' }))
+
+    expect(cancel).toHaveBeenCalledTimes(1)
+    expect(speak).toHaveBeenCalledTimes(1)
+    expect(speak.mock.calls[0]?.[0]).toMatchObject({ lang: 'ru-RU', text: 'а' })
   })
 })

@@ -100,6 +100,7 @@ export function App() {
   const [studyResult, setStudyResult] = useState<StudySessionResult | null>(null)
   const [currentStudyCardIndex, setCurrentStudyCardIndex] = useState(0)
   const [studyAnswerVisible, setStudyAnswerVisible] = useState(false)
+  const [pronunciationMessage, setPronunciationMessage] = useState<string | null>(null)
   const [studyReviews, setStudyReviews] = useState<
     Array<{ wordId: string; answerQuality: AnswerQuality; responseMs: number }>
   >([])
@@ -287,6 +288,7 @@ export function App() {
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
     setStudyAnswerVisible(false)
+    setPronunciationMessage(null)
     setStudyReviews([])
     setScoreEvents([])
     setCheckins([])
@@ -322,6 +324,7 @@ export function App() {
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
     setStudyAnswerVisible(false)
+    setPronunciationMessage(null)
     setStudyReviews([])
     setScoreEvents([])
     setLatestCheckin(null)
@@ -338,6 +341,26 @@ export function App() {
 
   function showStudyAnswer() {
     setStudyAnswerVisible(true)
+  }
+
+  function playRussianPronunciation(word: string) {
+    if (
+      typeof window === 'undefined' ||
+      !window.speechSynthesis ||
+      typeof SpeechSynthesisUtterance === 'undefined'
+    ) {
+      setPronunciationMessage('当前浏览器不支持读音播放。')
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(word)
+    utterance.lang = 'ru-RU'
+    utterance.rate = 0.86
+    utterance.pitch = 1
+
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+    setPronunciationMessage(`正在播放：${word}`)
   }
 
   function answerStudyCard(answerQuality: AnswerQuality) {
@@ -364,6 +387,7 @@ export function App() {
       setStudyReviews(nextReviews)
       setCurrentStudyCardIndex(currentStudyCardIndex + 1)
       setStudyAnswerVisible(false)
+      setPronunciationMessage(null)
       return
     }
 
@@ -387,6 +411,7 @@ export function App() {
       }),
     )
     setStudyAnswerVisible(false)
+    setPronunciationMessage(null)
     navigateTo('/study/result/demo')
   }
 
@@ -402,6 +427,7 @@ export function App() {
     setStudySession(session)
     setCurrentStudyCardIndex(0)
     setStudyAnswerVisible(false)
+    setPronunciationMessage(null)
     setStudyReviews([])
     setOfflineLearningPack(pack)
     setOfflineQueue([])
@@ -776,6 +802,7 @@ export function App() {
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
     setStudyAnswerVisible(false)
+    setPronunciationMessage(null)
     setStudyReviews([])
     setScoreEvents([])
     setCheckins([])
@@ -1171,7 +1198,19 @@ export function App() {
                     <span>重音：{currentStudyCard.stressedLemma}</span>
                   ) : null}
                   <span>{currentStudyCard.grammarHint}</span>
+                  <button
+                    className="pronunciation-button"
+                    type="button"
+                    onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
+                  >
+                    播放读音
+                  </button>
                 </div>
+                {pronunciationMessage ? (
+                  <p className="pronunciation-status" aria-live="polite">
+                    {pronunciationMessage}
+                  </p>
+                ) : null}
               </div>
 
               {!studyAnswerVisible ? (
@@ -1784,6 +1823,18 @@ export function App() {
                   <span>重音：{currentStudyCard.stressedLemma}</span>
                 ) : null}
                 <span>{currentStudyCard.grammarHint}</span>
+                <button
+                  className="pronunciation-button"
+                  type="button"
+                  onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
+                >
+                  播放读音
+                </button>
+                {pronunciationMessage ? (
+                  <span className="pronunciation-status" aria-live="polite">
+                    {pronunciationMessage}
+                  </span>
+                ) : null}
               </div>
 
               {!studyAnswerVisible ? (
