@@ -97,6 +97,43 @@ describe('onboarding flow', () => {
     expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
   })
 
+  it('lets a learner complete a Russian to Chinese dictation question', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始今日学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '俄译汉默写' }))
+
+    expect(screen.getByRole('group', { name: '默写题' })).toBeInTheDocument()
+    expect(screen.getByText('写出这个词的中文意思。')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('默写答案'), { target: { value: '而；可是' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交默写' }))
+
+    expect(screen.getByRole('heading', { name: '学习结果' })).toBeInTheDocument()
+    expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
+  })
+
+  it('lets a learner complete a Chinese to Russian dictation question', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始今日学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '汉译俄默写' }))
+
+    expect(screen.getByRole('group', { name: '默写题' })).toBeInTheDocument()
+    expect(screen.getByText('而；可是')).toBeInTheDocument()
+    expect(screen.getAllByText('写出对应的俄语。').length).toBeGreaterThanOrEqual(1)
+
+    fireEvent.change(screen.getByLabelText('默写答案'), { target: { value: 'а' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交默写' }))
+
+    expect(screen.getByRole('heading', { name: '学习结果' })).toBeInTheDocument()
+    expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
+  })
+
   it('plays Russian pronunciation for the current study card', () => {
     type SpokenUtterance = { lang: string; text: string }
 

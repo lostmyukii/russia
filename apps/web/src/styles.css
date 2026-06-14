@@ -471,7 +471,55 @@ p {
   font-size: 0.95rem;
 }
 
+.question-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: rgba(242, 242, 247, 0.82);
+}
+
+.question-mode-button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 780;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.question-mode-button.is-active {
+  color: var(--text);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
+}
+
+.question-mode-button:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.24);
+  outline-offset: 2px;
+}
+
+.dictation-card-hint {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 720;
+}
+
 .recall-options {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+}
+
+.dictation-question {
   display: grid;
   gap: 10px;
   padding: 0;
@@ -484,10 +532,44 @@ p {
   font-weight: 800;
 }
 
-.recall-options p {
+.dictation-question legend {
+  padding: 0;
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.recall-options p,
+.dictation-question p {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.dictation-form {
+  display: grid;
+  gap: 10px;
+}
+
+.dictation-form label {
+  color: var(--secondary);
+  font-weight: 760;
+}
+
+.dictation-form input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  color: var(--text);
+  background: #fff;
+  font: inherit;
+  font-size: 1.08rem;
+}
+
+.dictation-form input:focus {
+  border-color: rgba(0, 122, 255, 0.55);
+  outline: 3px solid rgba(0, 122, 255, 0.16);
 }
 
 .recall-option-grid {
@@ -1276,6 +1358,10 @@ h3 {
 
   .study-card-body {
     min-height: 116px;
+  }
+
+  .question-mode-selector {
+    grid-template-columns: 1fr;
   }
 
   .study-card-body strong {

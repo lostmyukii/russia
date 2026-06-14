@@ -78,6 +78,8 @@ const teacherAssignedLearnerAccounts = [
   },
 ] as const
 
+type StudyQuestionMode = 'choice' | 'ru_to_zh_dictation' | 'zh_to_ru_dictation'
+
 export function App() {
   const vocabularyCatalog = pepRussianVocabularyBooks
   const [routePath, setRoutePath] = useState(getInitialRoutePath)
@@ -116,6 +118,8 @@ export function App() {
   const [studyResult, setStudyResult] = useState<StudySessionResult | null>(null)
   const [currentStudyCardIndex, setCurrentStudyCardIndex] = useState(0)
   const [studyAnswerVisible, setStudyAnswerVisible] = useState(false)
+  const [studyQuestionMode, setStudyQuestionMode] = useState<StudyQuestionMode>('choice')
+  const [dictationAnswer, setDictationAnswer] = useState('')
   const [pronunciationMessage, setPronunciationMessage] = useState<string | null>(null)
   const [studyReviews, setStudyReviews] = useState<
     Array<{ wordId: string; answerQuality: AnswerQuality; responseMs: number }>
@@ -236,6 +240,16 @@ export function App() {
     setTargetDateInput(event.target.value)
   }
 
+  function updateDictationAnswer(event: ChangeEvent<HTMLInputElement>) {
+    setDictationAnswer(event.target.value)
+  }
+
+  function changeStudyQuestionMode(mode: StudyQuestionMode) {
+    setStudyQuestionMode(mode)
+    setDictationAnswer('')
+    setStudyAnswerVisible(false)
+  }
+
   function chooseVocabularyBook(bookSlug: string) {
     setSelectedBookSlug(bookSlug)
     setSelectedUnit(null)
@@ -341,6 +355,8 @@ export function App() {
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
     setStudyAnswerVisible(false)
+    setStudyQuestionMode('choice')
+    setDictationAnswer('')
     setPronunciationMessage(null)
     setStudyReviews([])
     setScoreEvents([])
@@ -404,6 +420,7 @@ export function App() {
       setStudyReviews(nextReviews)
       setCurrentStudyCardIndex(currentStudyCardIndex + 1)
       setStudyAnswerVisible(false)
+      setDictationAnswer('')
       setPronunciationMessage(null)
       return
     }
@@ -428,8 +445,25 @@ export function App() {
       }),
     )
     setStudyAnswerVisible(false)
+    setDictationAnswer('')
     setPronunciationMessage(null)
     navigateTo('/study/result/demo')
+  }
+
+  function submitDictationAnswer() {
+    if (!currentStudyCard) {
+      return
+    }
+
+    answerStudyCard(
+      isDictationAnswerCorrect({
+        answer: dictationAnswer,
+        card: currentStudyCard,
+        mode: studyQuestionMode,
+      })
+        ? 'good'
+        : 'again',
+    )
   }
 
   function cacheOfflineLearningPack() {
@@ -1225,21 +1259,29 @@ export function App() {
                 词卡 {currentStudyCardNumber}/{studyCards.length}
               </p>
               <div className="word-card" aria-label="俄语词卡">
-                <h2>{currentStudyCard.lemma}</h2>
-                <div className="phonetic-row">
-                  {currentStudyCard.stressedLemma ? (
-                    <span>重音：{currentStudyCard.stressedLemma}</span>
-                  ) : null}
-                  <span>{currentStudyCard.grammarHint}</span>
-                  <button
-                    className="pronunciation-button"
-                    type="button"
-                    onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
-                  >
-                    播放读音
-                  </button>
-                </div>
-                {pronunciationMessage ? (
+                <h2>
+                  {studyQuestionMode === 'zh_to_ru_dictation'
+                    ? currentStudyCard.definitionZh
+                    : currentStudyCard.lemma}
+                </h2>
+                {studyQuestionMode === 'zh_to_ru_dictation' ? (
+                  <p className="dictation-card-hint">写出对应的俄语。</p>
+                ) : (
+                  <div className="phonetic-row">
+                    {currentStudyCard.stressedLemma ? (
+                      <span>重音：{currentStudyCard.stressedLemma}</span>
+                    ) : null}
+                    <span>{currentStudyCard.grammarHint}</span>
+                    <button
+                      className="pronunciation-button"
+                      type="button"
+                      onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
+                    >
+                      播放读音
+                    </button>
+                  </div>
+                )}
+                {pronunciationMessage && studyQuestionMode !== 'zh_to_ru_dictation' ? (
                   <p className="pronunciation-status" aria-live="polite">
                     {pronunciationMessage}
                   </p>
@@ -1248,7 +1290,20 @@ export function App() {
 
               {!studyAnswerVisible ? (
                 <>
-                  <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  <StudyQuestionModeSelector
+                    selectedMode={studyQuestionMode}
+                    onSelect={changeStudyQuestionMode}
+                  />
+                  {studyQuestionMode === 'choice' ? (
+                    <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  ) : (
+                    <DictationQuestion
+                      answer={dictationAnswer}
+                      mode={studyQuestionMode}
+                      onAnswerChange={updateDictationAnswer}
+                      onSubmit={submitDictationAnswer}
+                    />
+                  )}
                   <button className="primary-action" type="button" onClick={showStudyAnswer}>
                     显示答案
                   </button>
@@ -1853,19 +1908,29 @@ export function App() {
               </div>
 
               <div className="study-card-body">
-                <strong>{currentStudyCard.lemma}</strong>
-                {currentStudyCard.stressedLemma ? (
-                  <span>重音：{currentStudyCard.stressedLemma}</span>
-                ) : null}
-                <span>{currentStudyCard.grammarHint}</span>
-                <button
-                  className="pronunciation-button"
-                  type="button"
-                  onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
-                >
-                  播放读音
-                </button>
-                {pronunciationMessage ? (
+                <strong>
+                  {studyQuestionMode === 'zh_to_ru_dictation'
+                    ? currentStudyCard.definitionZh
+                    : currentStudyCard.lemma}
+                </strong>
+                {studyQuestionMode === 'zh_to_ru_dictation' ? (
+                  <span>写出对应的俄语。</span>
+                ) : (
+                  <>
+                    {currentStudyCard.stressedLemma ? (
+                      <span>重音：{currentStudyCard.stressedLemma}</span>
+                    ) : null}
+                    <span>{currentStudyCard.grammarHint}</span>
+                    <button
+                      className="pronunciation-button"
+                      type="button"
+                      onClick={() => playRussianPronunciation(currentStudyCard.lemma)}
+                    >
+                      播放读音
+                    </button>
+                  </>
+                )}
+                {pronunciationMessage && studyQuestionMode !== 'zh_to_ru_dictation' ? (
                   <span className="pronunciation-status" aria-live="polite">
                     {pronunciationMessage}
                   </span>
@@ -1874,7 +1939,20 @@ export function App() {
 
               {!studyAnswerVisible ? (
                 <>
-                  <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  <StudyQuestionModeSelector
+                    selectedMode={studyQuestionMode}
+                    onSelect={changeStudyQuestionMode}
+                  />
+                  {studyQuestionMode === 'choice' ? (
+                    <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  ) : (
+                    <DictationQuestion
+                      answer={dictationAnswer}
+                      mode={studyQuestionMode}
+                      onAnswerChange={updateDictationAnswer}
+                      onSubmit={submitDictationAnswer}
+                    />
+                  )}
                   <button className="secondary-action" type="button" onClick={showStudyAnswer}>
                     显示答案
                   </button>
@@ -2274,6 +2352,38 @@ function TeacherStudentCredentialsList({ students }: { students: TeacherStudent[
   )
 }
 
+function StudyQuestionModeSelector({
+  selectedMode,
+  onSelect,
+}: {
+  selectedMode: StudyQuestionMode
+  onSelect: (mode: StudyQuestionMode) => void
+}) {
+  const modes: Array<{ label: string; value: StudyQuestionMode }> = [
+    { label: '选义题', value: 'choice' },
+    { label: '俄译汉默写', value: 'ru_to_zh_dictation' },
+    { label: '汉译俄默写', value: 'zh_to_ru_dictation' },
+  ]
+
+  return (
+    <div className="question-mode-selector" aria-label="题型选择">
+      {modes.map((mode) => (
+        <button
+          className={
+            mode.value === selectedMode ? 'question-mode-button is-active' : 'question-mode-button'
+          }
+          type="button"
+          aria-pressed={mode.value === selectedMode}
+          key={mode.value}
+          onClick={() => onSelect(mode.value)}
+        >
+          {mode.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function RecallOptions({
   options,
   onSelect,
@@ -2300,6 +2410,40 @@ function RecallOptions({
           </button>
         ))}
       </div>
+    </fieldset>
+  )
+}
+
+function DictationQuestion({
+  answer,
+  mode,
+  onAnswerChange,
+  onSubmit,
+}: {
+  answer: string
+  mode: Exclude<StudyQuestionMode, 'choice'>
+  onAnswerChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onSubmit: () => void
+}) {
+  const prompt = mode === 'ru_to_zh_dictation' ? '写出这个词的中文意思。' : '写出对应的俄语。'
+
+  return (
+    <fieldset className="dictation-question" aria-label="默写题">
+      <legend>默写题</legend>
+      <p>{prompt}</p>
+      <form
+        className="dictation-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit()
+        }}
+      >
+        <label htmlFor="dictation-answer">默写答案</label>
+        <input id="dictation-answer" autoComplete="off" value={answer} onChange={onAnswerChange} />
+        <button className="primary-action" type="submit" disabled={!answer.trim()}>
+          提交默写
+        </button>
+      </form>
     </fieldset>
   )
 }
@@ -2369,6 +2513,45 @@ function buildRecallOptions(currentCard: StudyWordCard): string[] {
     options.length
 
   return [...options.slice(offset), ...options.slice(0, offset)]
+}
+
+function isDictationAnswerCorrect({
+  answer,
+  card,
+  mode,
+}: {
+  answer: string
+  card: StudyWordCard
+  mode: StudyQuestionMode
+}): boolean {
+  const normalizedAnswer = normalizeDictationText(answer)
+
+  if (!normalizedAnswer || mode === 'choice') {
+    return false
+  }
+
+  if (mode === 'zh_to_ru_dictation') {
+    return [card.lemma, card.stressedLemma ?? ''].some(
+      (candidate) => normalizeDictationText(candidate) === normalizedAnswer,
+    )
+  }
+
+  return splitChineseDefinitions(card.definitionZh).some(
+    (candidate) => normalizeDictationText(candidate) === normalizedAnswer,
+  )
+}
+
+function splitChineseDefinitions(definition: string): string[] {
+  return [definition, ...definition.split(/[；;，,、/]/u)]
+}
+
+function normalizeDictationText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase()
 }
 
 function getRussianWordDefinition(word: RussianWord): string | null {
