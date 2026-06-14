@@ -2,15 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { App } from './App'
+import { completeGuestStudySession } from './test-utils'
 
 describe('teacher progress dashboard', () => {
   it('shows recitation progress for guest and registered learners', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: '访客开始学习' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
-    fireEvent.click(screen.getByRole('button', { name: '完成首组背诵' }))
-    fireEvent.click(screen.getByRole('button', { name: '老师账号查看进度' }))
+    completeGuestStudySession()
+    fireEvent.click(screen.getByRole('link', { name: '返回今日任务' }))
+    fireEvent.click(screen.getByRole('button', { name: '老师端' }))
 
     expect(screen.getByText('老师账号：俄语老师')).toBeInTheDocument()
     expect(screen.getByText('登录学习者')).toBeInTheDocument()

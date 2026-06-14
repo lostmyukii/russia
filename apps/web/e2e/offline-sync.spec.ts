@@ -3,8 +3,10 @@ import { expect, test } from '@playwright/test'
 test('offline sync waits for server confirmation before score updates', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: '访客开始学习' }).click()
+  await page.getByRole('link', { name: '开始学习' }).click()
+  await page.getByRole('button', { name: '先体验一下' }).click()
   await page.getByRole('button', { name: '生成学习计划' }).click()
+  await page.getByRole('link', { name: '离线学习' }).click()
   await page.getByRole('button', { name: '缓存离线学习包' }).click()
   await page.getByRole('button', { name: '断网作答' }).click()
 

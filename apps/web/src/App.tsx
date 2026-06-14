@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react'
 
 import {
   addStudentToTeacher,
@@ -27,6 +27,7 @@ import {
   markOfflineSyncOperationSynced,
   pepRussianVocabularyBooks,
   pepRussianWords,
+  type AnswerQuality,
   type GuestUser,
   type CheckinRecord,
   type DashboardSummary,
@@ -63,7 +64,12 @@ const baselineItems = [
 ]
 
 export function App() {
-  const featuredBook = pepRussianVocabularyBooks[0]
+  const vocabularyCatalog = pepRussianVocabularyBooks
+  const [routePath, setRoutePath] = useState(getInitialRoutePath)
+  const [selectedBookSlug, setSelectedBookSlug] = useState<string | null>(null)
+  const [bookSearch, setBookSearch] = useState('')
+  const featuredBook =
+    vocabularyCatalog.find((book) => book.slug === selectedBookSlug) ?? vocabularyCatalog[0]
   const featuredUnits = featuredBook ? groupRussianWordsByUnit(featuredBook.slug) : []
   const featuredUnit = featuredUnits.find((unit) => unit.unit !== '0') ?? featuredUnits[0]
   const featuredBookShortName =
@@ -87,6 +93,11 @@ export function App() {
   const [activePlan, setActivePlan] = useState<StudyPlan | null>(null)
   const [studySession, setStudySession] = useState<StudySession | null>(null)
   const [studyResult, setStudyResult] = useState<StudySessionResult | null>(null)
+  const [currentStudyCardIndex, setCurrentStudyCardIndex] = useState(0)
+  const [studyAnswerVisible, setStudyAnswerVisible] = useState(false)
+  const [studyReviews, setStudyReviews] = useState<
+    Array<{ wordId: string; answerQuality: AnswerQuality; responseMs: number }>
+  >([])
   const [scoreEvents, setScoreEvents] = useState<StudyScoreEvent[]>([])
   const [checkins, setCheckins] = useState<CheckinRecord[]>([])
   const [latestCheckin, setLatestCheckin] = useState<CheckinRecord | null>(null)
@@ -110,11 +121,68 @@ export function App() {
   const [offlineSyncMessage, setOfflineSyncMessage] = useState<string | null>(null)
   const [offlineServerConfirmed, setOfflineServerConfirmed] = useState(false)
   const activeLearner = phoneLearner ?? guestUser
+  const isStudyRoute = routePath.startsWith('/study/session')
+  const isStudyResultRoute = routePath.startsWith('/study/result')
+  const bookDetailSlug = routePath.startsWith('/books/')
+    ? decodeURIComponent(routePath.replace('/books/', ''))
+    : null
+  const selectedBookDetail = bookDetailSlug
+    ? vocabularyCatalog.find((book) => book.slug === bookDetailSlug)
+    : null
+  const selectedBookUnits = selectedBookDetail
+    ? groupRussianWordsByUnit(selectedBookDetail.slug)
+    : []
+  const filteredVocabularyCatalog = vocabularyCatalog.filter((book) => {
+    const keyword = bookSearch.trim().toLowerCase()
+
+    if (!keyword) {
+      return true
+    }
+
+    return `${book.name} ${book.grade} ${book.volume} ${book.source}`
+      .toLowerCase()
+      .includes(keyword)
+  })
+
+  useEffect(() => {
+    function handlePopState() {
+      setRoutePath(getCurrentRoutePath())
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  function navigateTo(path: string) {
+    const nextPath = normalizeRoutePath(path)
+
+    if (getCurrentRoutePath() !== nextPath) {
+      window.history.pushState(null, '', nextPath)
+    }
+
+    setRoutePath(nextPath)
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
+  function navigateOnClick(path: string) {
+    return (event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault()
+      navigateTo(path)
+    }
+  }
 
   function startGuestLearning() {
     setPhoneLearner(null)
     setPhoneLoginMessage(null)
     setGuestUser(createGuestLearner({ now: new Date().toISOString() }))
+  }
+
+  function startGuestOnboarding() {
+    startGuestLearning()
+    navigateTo('/onboarding')
   }
 
   function updatePhoneNumber(event: ChangeEvent<HTMLInputElement>) {
@@ -123,6 +191,15 @@ export function App() {
 
   function updatePhoneCodeInput(event: ChangeEvent<HTMLInputElement>) {
     setPhoneCodeInput(event.target.value)
+  }
+
+  function updateBookSearch(event: ChangeEvent<HTMLInputElement>) {
+    setBookSearch(event.target.value)
+  }
+
+  function chooseVocabularyBook(bookSlug: string) {
+    setSelectedBookSlug(bookSlug)
+    navigateTo('/onboarding')
   }
 
   function requestPhoneCode() {
@@ -157,6 +234,7 @@ export function App() {
     setPhoneLoginMessage(`已登录：${learner.displayName}`)
     setPhoneVerificationCode(null)
     setPhoneCodeInput('')
+    navigateTo('/onboarding')
   }
 
   function generateStudyPlan() {
@@ -187,6 +265,9 @@ export function App() {
     setActivePlan(result.studyPlan)
     setStudySession(null)
     setStudyResult(null)
+    setCurrentStudyCardIndex(0)
+    setStudyAnswerVisible(false)
+    setStudyReviews([])
     setScoreEvents([])
     setCheckins([])
     setLatestCheckin(null)
@@ -205,37 +286,23 @@ export function App() {
     setOfflineQueue([])
     setOfflineSyncMessage(null)
     setOfflineServerConfirmed(false)
+    navigateTo('/home')
   }
 
-  function completeFirstStudySession() {
+  function startStudySession() {
     if (!activePlan || !activeLearner) {
       return
     }
 
     const now = new Date().toISOString()
     const session = createStudySessionFromPlan({ plan: activePlan, now })
-    const result = completeStudySession({
-      session,
-      request: {
-        userId: activeLearner.id,
-        reviews: session.wordCards.map((card, index) => ({
-          wordId: card.wordId,
-          answerQuality: index === 0 ? 'good' : 'again',
-          responseMs: index === 0 ? 5200 : 9000,
-        })),
-      },
-      now,
-    })
 
     setStudySession(session)
-    setStudyResult(result)
-    setScoreEvents(
-      buildScoreEventsForStudyResult({
-        session,
-        result,
-        idempotencyKey: `complete-${activeLearner.id}`,
-      }),
-    )
+    setStudyResult(null)
+    setCurrentStudyCardIndex(0)
+    setStudyAnswerVisible(false)
+    setStudyReviews([])
+    setScoreEvents([])
     setLatestCheckin(null)
     setDashboardSummary(null)
     setDailyLeaderboard([])
@@ -245,6 +312,61 @@ export function App() {
     setOfflineQueue([])
     setOfflineSyncMessage(null)
     setOfflineServerConfirmed(false)
+    navigateTo('/study/session/demo')
+  }
+
+  function showStudyAnswer() {
+    setStudyAnswerVisible(true)
+  }
+
+  function answerStudyCard(answerQuality: AnswerQuality) {
+    if (!studySession || !activeLearner) {
+      return
+    }
+
+    const currentCard = studySession.wordCards[currentStudyCardIndex]
+
+    if (!currentCard) {
+      return
+    }
+
+    const nextReviews = [
+      ...studyReviews,
+      {
+        wordId: currentCard.wordId,
+        answerQuality,
+        responseMs: answerQuality === 'again' ? 9000 : 4200,
+      },
+    ]
+
+    if (currentStudyCardIndex < studySession.wordCards.length - 1) {
+      setStudyReviews(nextReviews)
+      setCurrentStudyCardIndex(currentStudyCardIndex + 1)
+      setStudyAnswerVisible(false)
+      return
+    }
+
+    const now = new Date().toISOString()
+    const result = completeStudySession({
+      session: studySession,
+      request: {
+        userId: activeLearner.id,
+        reviews: nextReviews,
+      },
+      now,
+    })
+
+    setStudyReviews(nextReviews)
+    setStudyResult(result)
+    setScoreEvents(
+      buildScoreEventsForStudyResult({
+        session: studySession,
+        result,
+        idempotencyKey: `complete-${activeLearner.id}`,
+      }),
+    )
+    setStudyAnswerVisible(false)
+    navigateTo('/study/result/demo')
   }
 
   function cacheOfflineLearningPack() {
@@ -257,11 +379,16 @@ export function App() {
     const pack = createOfflineLearningPack({ session, now })
 
     setStudySession(session)
+    setCurrentStudyCardIndex(0)
+    setStudyAnswerVisible(false)
+    setStudyReviews([])
     setOfflineLearningPack(pack)
     setOfflineQueue([])
     setOfflineSyncMessage(null)
     setOfflineServerConfirmed(false)
     setStudyResult(null)
+    setStudyAnswerVisible(false)
+    setStudyReviews([])
     setScoreEvents([])
     setCheckins([])
     setLatestCheckin(null)
@@ -478,6 +605,11 @@ export function App() {
     setTeacherTaskOverview(null)
   }
 
+  function openTeacherProgress() {
+    showTeacherProgress()
+    navigateTo('/teacher')
+  }
+
   function addStudentsToClass() {
     if (!teacherUser || classLearners.length === 0) {
       return
@@ -618,6 +750,9 @@ export function App() {
     setActivePlan(null)
     setStudySession(null)
     setStudyResult(null)
+    setCurrentStudyCardIndex(0)
+    setStudyAnswerVisible(false)
+    setStudyReviews([])
     setScoreEvents([])
     setCheckins([])
     setLatestCheckin(null)
@@ -643,13 +778,791 @@ export function App() {
   }
 
   const pendingOfflineCount = getQueuedOfflineSyncOperations(offlineQueue).length
-  const vocabularyCatalog = pepRussianVocabularyBooks
   const importedVocabularyBookCount = vocabularyCatalog.filter((book) => book.wordCount > 0).length
   const importedVocabularyWordCount = vocabularyCatalog.reduce(
     (total, book) => total + book.wordCount,
     0,
   )
   const pendingVocabularyBookCount = vocabularyCatalog.length - importedVocabularyBookCount
+  const studyCards = studySession?.wordCards ?? []
+  const currentStudyCard = studyCards[currentStudyCardIndex]
+  const currentStudyCardNumber = currentStudyCard ? currentStudyCardIndex + 1 : 0
+
+  if (routePath === '/') {
+    return (
+      <main className="route-shell app-entry-shell">
+        <section className="entry-card" aria-labelledby="entry-title">
+          <p className="eyebrow">科学记忆 · 主动回忆 · 人教版俄语</p>
+          <h1 id="entry-title">俄语百词斩</h1>
+          <p className="hero-copy">
+            按人教版教材册别和单元安排每日任务，完成背诵、复习、错词、打卡和排行榜闭环。
+          </p>
+          <a className="primary-action" href="/login" onClick={navigateOnClick('/login')}>
+            开始学习
+          </a>
+        </section>
+
+        <nav className="legal-link-row" aria-label="合规链接">
+          <a href="/privacy.html">隐私政策</a>
+          <a href="/terms.html">用户协议</a>
+        </nav>
+      </main>
+    )
+  }
+
+  if (routePath === '/login') {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card" aria-labelledby="login-title">
+          <p className="eyebrow">登录后继续学习</p>
+          <h1 id="login-title">开始你的俄语计划</h1>
+          <p className="auth-copy">用手机验证码登录，或先以访客身份体验完整的新手引导。</p>
+
+          {phoneLoginMessage ? (
+            <p className="login-message" aria-live="polite">
+              {phoneLoginMessage}
+            </p>
+          ) : null}
+
+          <div className="auth-form" aria-label="手机验证码登录">
+            <div className="form-field">
+              <label htmlFor="phone-number">手机号</label>
+              <input
+                id="phone-number"
+                inputMode="numeric"
+                maxLength={11}
+                value={phoneNumber}
+                onChange={updatePhoneNumber}
+              />
+              <p className="field-hint">开发环境验证码固定为 246810。</p>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="phone-code">验证码</label>
+              <input
+                id="phone-code"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="6 位验证码"
+                value={phoneCodeInput}
+                onChange={updatePhoneCodeInput}
+              />
+            </div>
+
+            <div className="answer-actions">
+              <button className="secondary-action" type="button" onClick={requestPhoneCode}>
+                获取验证码
+              </button>
+              <button className="primary-action" type="button" onClick={verifyPhoneCode}>
+                登录并继续
+              </button>
+            </div>
+          </div>
+
+          <div className="guest-entry">
+            <span>还不想绑定手机号？</span>
+            <button className="secondary-action" type="button" onClick={startGuestOnboarding}>
+              先体验一下
+            </button>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/onboarding') {
+    return (
+      <main className="onboarding-shell">
+        <section className="plan-card" aria-labelledby="onboarding-title">
+          <p className="eyebrow">新手引导</p>
+          <h1 id="onboarding-title">{activePlan ? '已有学习计划' : '生成你的学习计划'}</h1>
+          <p className="hero-copy">
+            先选定人教版俄语册别和单元，再生成今日任务；后续会按 SRS 安排复习。
+          </p>
+
+          {!activeLearner ? (
+            <>
+              <p className="form-alert" role="alert">
+                请先登录或使用访客身份开始。
+              </p>
+              <a className="primary-action" href="/login" onClick={navigateOnClick('/login')}>
+                去登录
+              </a>
+            </>
+          ) : activePlan && featuredBook ? (
+            <>
+              <div className="selected-book-card">
+                <span>当前计划</span>
+                <strong>{featuredBook.name}</strong>
+                <p>
+                  第 {activePlan.unit} 单元 · 每日新词 {activePlan.dailyNewWordTarget} 个
+                </p>
+              </div>
+              <a className="primary-action" href="/home" onClick={navigateOnClick('/home')}>
+                查看今日任务
+              </a>
+            </>
+          ) : (
+            <>
+              {featuredBook ? (
+                <div className="selected-book-card">
+                  <span>已选择词库</span>
+                  <strong>{featuredBook.name}</strong>
+                  <p>
+                    {featuredBook.wordCount} 个词 · 第 {featuredUnit?.unit ?? '1'} 单元{' '}
+                    {featuredUnit?.wordCount ?? 0} 个词
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="plan-form" aria-label="学习计划设置">
+                <div className="form-field">
+                  <label htmlFor="daily-target">每日新词量</label>
+                  <input id="daily-target" readOnly value="1" />
+                  <p className="field-hint">当前演示按每日 1 个新词生成，便于快速完成首组背诵。</p>
+                </div>
+                <button
+                  className="primary-action"
+                  type="button"
+                  onClick={generateStudyPlan}
+                  disabled={!featuredBook || !featuredUnit}
+                >
+                  生成学习计划
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/home') {
+    return (
+      <main className="home-shell">
+        <section className="today-card" aria-labelledby="home-title">
+          <p className="eyebrow">今日任务</p>
+          <h1 id="home-title">今日任务</h1>
+
+          {!activeLearner ? (
+            <>
+              <p className="hero-copy">请先登录或使用访客身份，再生成学习计划。</p>
+              <a className="primary-action" href="/login" onClick={navigateOnClick('/login')}>
+                去登录
+              </a>
+            </>
+          ) : !activePlan || !featuredBook ? (
+            <>
+              <p className="hero-copy">还没有学习计划。先选择一本词库，再生成每日任务。</p>
+              <a className="primary-action" href="/books" onClick={navigateOnClick('/books')}>
+                选择词库
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="hero-copy">
+                {featuredBook.name} · 第 {activePlan.unit} 单元 · 每日新词{' '}
+                {activePlan.dailyNewWordTarget} 个
+              </p>
+
+              <div className="today-summary-grid" aria-label="今日学习概览">
+                <div>
+                  <span>新词</span>
+                  <strong>{activePlan.dailyNewWordTarget}</strong>
+                </div>
+                <div>
+                  <span>本单元</span>
+                  <strong>{featuredUnit?.wordCount ?? 0}</strong>
+                </div>
+                <div>
+                  <span>已完成</span>
+                  <strong>{studyResult ? 1 : 0}</strong>
+                </div>
+              </div>
+
+              <div className="checkin-card" aria-label="词库导入状态">
+                <strong>词库已导入</strong>
+                <span>
+                  {importedVocabularyBookCount} 册 · {importedVocabularyWordCount} 个词
+                </span>
+              </div>
+
+              {latestCheckin && dashboardSummary ? (
+                <div className="checkin-card ready" aria-live="polite">
+                  <strong>今日已打卡：连续 {latestCheckin.streakDays} 天</strong>
+                  <span>
+                    今日积分 {dashboardSummary.scoreToday} · 本周积分 {dashboardSummary.scoreWeek}
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="task-list" aria-label="今日任务列表">
+                <article className="task-card">
+                  <div>
+                    <h2>今日新词</h2>
+                    <p>完成词卡学习和主动回忆后，可以打卡并进入排行榜。</p>
+                  </div>
+                  <strong>{activePlan.dailyNewWordTarget} 个</strong>
+                </article>
+                <article className="task-card">
+                  <div>
+                    <h2>到期复习</h2>
+                    <p>首轮完成后，系统会根据作答质量安排下一次复习。</p>
+                  </div>
+                  <strong>0 个</strong>
+                </article>
+              </div>
+
+              <button className="primary-action" type="button" onClick={startStudySession}>
+                开始今日学习
+              </button>
+
+              <div className="action-row">
+                <a className="secondary-action" href="/books" onClick={navigateOnClick('/books')}>
+                  词库
+                </a>
+                <a
+                  className="secondary-action"
+                  href="/dashboard"
+                  onClick={navigateOnClick('/dashboard')}
+                >
+                  学习看板
+                </a>
+                <a
+                  className="secondary-action"
+                  href="/offline"
+                  onClick={navigateOnClick('/offline')}
+                >
+                  离线学习
+                </a>
+                <a
+                  className="secondary-action"
+                  href="/mistakes"
+                  onClick={navigateOnClick('/mistakes')}
+                >
+                  错词本
+                </a>
+                <button className="secondary-action" type="button" onClick={openTeacherProgress}>
+                  老师端
+                </button>
+                <button className="secondary-action" type="button" onClick={clearLocalLearningData}>
+                  清除本机学习数据
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+
+        {dailyLeaderboard.length > 0 ? (
+          <section className="leaderboard-section" aria-labelledby="home-leaderboard-title">
+            <div className="section-heading">
+              <p className="eyebrow">积分</p>
+              <h2 id="home-leaderboard-title">排行榜</h2>
+            </div>
+            <div className="leaderboard-grid">
+              <LeaderboardPanel title="今日榜" entries={dailyLeaderboard} />
+              <LeaderboardPanel title="周榜" entries={weeklyLeaderboard} />
+              <LeaderboardPanel title="册别榜" entries={bookLeaderboard} />
+            </div>
+          </section>
+        ) : null}
+      </main>
+    )
+  }
+
+  if (isStudyRoute) {
+    return (
+      <main className="study-shell">
+        <section className="study-route-card" aria-labelledby="study-route-title">
+          <p className="eyebrow">新词学习</p>
+          <h1 id="study-route-title">今日背诵</h1>
+
+          {!studySession || !currentStudyCard ? (
+            <>
+              <p className="hero-copy">当前还没有进行中的学习会话。</p>
+              <button
+                className="primary-action"
+                type="button"
+                onClick={startStudySession}
+                disabled={!activePlan || !activeLearner}
+              >
+                开始今日学习
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="session-progress">
+                词卡 {currentStudyCardNumber}/{studyCards.length}
+              </p>
+              <div className="word-card" aria-label="俄语词卡">
+                <h2>{currentStudyCard.lemma}</h2>
+                <div className="phonetic-row">
+                  {currentStudyCard.stressedLemma ? (
+                    <span>重音：{currentStudyCard.stressedLemma}</span>
+                  ) : null}
+                  <span>{currentStudyCard.grammarHint}</span>
+                </div>
+              </div>
+
+              {!studyAnswerVisible ? (
+                <button className="primary-action" type="button" onClick={showStudyAnswer}>
+                  显示答案
+                </button>
+              ) : (
+                <>
+                  <div className="meaning-list">
+                    <p>
+                      <strong>{currentStudyCard.partOfSpeech}</strong>{' '}
+                      {currentStudyCard.definitionZh}
+                    </p>
+                  </div>
+                  <blockquote className="example-card">
+                    <p>{currentStudyCard.exampleRu}</p>
+                    <footer>{currentStudyCard.exampleZh}</footer>
+                  </blockquote>
+                  <div className="answer-actions">
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => answerStudyCard('again')}
+                    >
+                      不熟
+                    </button>
+                    <button
+                      className="primary-action"
+                      type="button"
+                      onClick={() => answerStudyCard('good')}
+                    >
+                      掌握
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  if (isStudyResultRoute) {
+    const correctRate = studyResult ? Math.round(studyResult.correctRate * 100) : 0
+
+    return (
+      <main className="study-shell">
+        <section className="study-route-card" aria-labelledby="result-route-title">
+          <p className="eyebrow">学习结果</p>
+          <h1 id="result-route-title">学习结果</h1>
+
+          {!studyResult ? (
+            <>
+              <p className="hero-copy">还没有完成的学习结果。</p>
+              <a className="primary-action" href="/home" onClick={navigateOnClick('/home')}>
+                返回今日任务
+              </a>
+            </>
+          ) : (
+            <>
+              <p className="hero-copy">
+                已完成 {studyResult.studiedWordCount} 个词 · 正确率 {correctRate}%
+              </p>
+              <div className="checkin-card" aria-live="polite">
+                <strong>
+                  已背 {studyResult.studiedWordCount} 个词，掌握 {studyResult.masteredWordCount}{' '}
+                  个词
+                </strong>
+                <span>完成打卡后会更新学习看板和排行榜。</span>
+              </div>
+              <div className="result-summary-grid" aria-label="学习结果概览">
+                <div>
+                  <span>已背</span>
+                  <strong>{studyResult.studiedWordCount}</strong>
+                </div>
+                <div>
+                  <span>掌握</span>
+                  <strong>{studyResult.masteredWordCount}</strong>
+                </div>
+                <div>
+                  <span>正确率</span>
+                  <strong>{correctRate}%</strong>
+                </div>
+              </div>
+              <div className="action-row">
+                <button
+                  className="primary-action"
+                  type="button"
+                  onClick={completeDailyCheckin}
+                  disabled={!studyResult}
+                >
+                  完成今日打卡
+                </button>
+                <a className="secondary-action" href="/home" onClick={navigateOnClick('/home')}>
+                  返回今日任务
+                </a>
+              </div>
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/mistakes') {
+    return (
+      <main className="home-shell">
+        <section className="today-card" aria-labelledby="mistakes-route-title">
+          <p className="eyebrow">错词强化</p>
+          <h1 id="mistakes-route-title">错词本</h1>
+          <p className="hero-copy">
+            答错、模糊和遗忘的词会进入错词队列，连续正确后再回到普通复习。
+          </p>
+
+          <div className="review-actions" aria-label="复习与错词操作">
+            <button className="secondary-action" type="button" onClick={simulateMistakeReview}>
+              错词复习
+            </button>
+            <button
+              className="primary-action"
+              type="button"
+              onClick={eliminateMistake}
+              disabled={!reviewProgress || mistakes.length === 0}
+            >
+              完成错词消灭
+            </button>
+          </div>
+
+          {mistakes.length > 0 ? (
+            <div className="mistake-list" aria-label="错词本">
+              {mistakes.map((mistake) => (
+                <div className="mistake-row" key={mistake.wordId}>
+                  <strong>{mistake.lemma}</strong>
+                  <span>{mistake.definitionZh}</span>
+                  <span>{formatErrorType(mistake.lastErrorType)} · 10 分钟后复习</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-note">暂无错词，先完成一组学习后再回来强化。</p>
+          )}
+
+          {mistakeResolved ? (
+            <div className="mistake-resolved" aria-live="polite">
+              <strong>错词已消灭</strong>
+              <span>连续正确 3 次</span>
+            </div>
+          ) : null}
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/offline') {
+    return (
+      <main className="home-shell">
+        <section className="today-card" aria-labelledby="offline-route-title">
+          <p className="eyebrow">离线模式</p>
+          <h1 id="offline-route-title">离线学习</h1>
+          <p className="hero-copy">
+            先缓存当前学习包，断网时作答会进入待同步队列，恢复网络后再写入学习结果。
+          </p>
+
+          <div className="offline-actions" aria-label="离线同步操作">
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={cacheOfflineLearningPack}
+              disabled={!activePlan || !activeLearner}
+            >
+              缓存离线学习包
+            </button>
+            <button
+              className="primary-action"
+              type="button"
+              onClick={queueOfflineAnswer}
+              disabled={!offlineLearningPack}
+            >
+              断网作答
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={syncOfflineQueue}
+              disabled={pendingOfflineCount === 0}
+            >
+              恢复网络同步
+            </button>
+          </div>
+
+          {offlineLearningPack ? (
+            <div className="offline-pack" aria-live="polite">
+              <strong>学习包已缓存：{offlineLearningPack.wordCards.length} 张词卡</strong>
+              <span>离线会话：{offlineLearningPack.sessionId}</span>
+              <span>有效期至 {offlineLearningPack.expiresAt.slice(0, 10)}</span>
+            </div>
+          ) : null}
+
+          {offlineSyncMessage ? (
+            <p className="offline-message" aria-live="polite">
+              {offlineSyncMessage}
+            </p>
+          ) : null}
+
+          {offlineServerConfirmed ? (
+            <p className="offline-confirmation" aria-live="polite">
+              同步已确认。
+            </p>
+          ) : null}
+
+          {studyResult ? (
+            <div className="study-result" aria-live="polite">
+              <strong>学习结果</strong>
+              <span>
+                已背 {studyResult.studiedWordCount} 个词，掌握 {studyResult.masteredWordCount} 个词
+              </span>
+            </div>
+          ) : null}
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/books') {
+    return (
+      <main className="book-shell">
+        <section className="book-hero" aria-labelledby="books-title">
+          <p className="eyebrow">词库选择</p>
+          <h1 id="books-title">选择人教版俄语词库</h1>
+          <p className="hero-copy">初中和高中词汇按册别、单元拆分，当前已导入完整词表。</p>
+          <label className="book-search" htmlFor="book-search">
+            <span>搜索词库</span>
+            <input
+              id="book-search"
+              type="search"
+              value={bookSearch}
+              placeholder="输入年级、册别或词库名称"
+              onChange={updateBookSearch}
+            />
+          </label>
+        </section>
+
+        <section className="book-list-panel" aria-live="polite">
+          {filteredVocabularyCatalog.length > 0 ? (
+            <div className="book-grid">
+              {filteredVocabularyCatalog.map((book) => (
+                <article className="book-card" key={book.slug}>
+                  <div>
+                    <p className="book-category">
+                      {book.educationStage === 'junior' ? '初中俄语' : '高中俄语'}
+                    </p>
+                    <h2>{book.name}</h2>
+                    <p>
+                      {book.grade} · {book.volume} · {book.wordCount} 个词
+                    </p>
+                  </div>
+                  <div className="book-card-footer">
+                    <span>{book.wordCount} 词</span>
+                    <a
+                      className="primary-action"
+                      href={`/books/${book.slug}`}
+                      onClick={navigateOnClick(`/books/${book.slug}`)}
+                      aria-label={`查看 ${book.name}`}
+                    >
+                      查看详情
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="book-status">暂时没有匹配的词库。</p>
+          )}
+        </section>
+      </main>
+    )
+  }
+
+  if (bookDetailSlug) {
+    return (
+      <main className="book-shell">
+        <a className="text-link" href="/books" onClick={navigateOnClick('/books')}>
+          返回词库列表
+        </a>
+
+        {selectedBookDetail ? (
+          <section className="book-detail-card" aria-labelledby="book-detail-title">
+            <p className="eyebrow">
+              {selectedBookDetail.educationStage === 'junior' ? '初中俄语' : '高中俄语'}
+            </p>
+            <h1 id="book-detail-title">{selectedBookDetail.name}</h1>
+            <p className="book-detail-count">{selectedBookDetail.wordCount} 个核心词</p>
+            <p className="hero-copy">词汇按人教版教材单元导入，学习计划会优先安排所选册别。</p>
+            <div className="unit-list" aria-label={`${selectedBookDetail.name} 单元`}>
+              {selectedBookUnits.map((unit) => (
+                <div className="unit-row" key={unit.unit}>
+                  <div>
+                    <strong>{unit.unitTitle}</strong>
+                    <span>第 {unit.unit} 单元</span>
+                  </div>
+                  <span>{unit.wordCount} 个词</span>
+                </div>
+              ))}
+            </div>
+            <button
+              className="primary-action"
+              type="button"
+              onClick={() => chooseVocabularyBook(selectedBookDetail.slug)}
+            >
+              选择这个词库
+            </button>
+          </section>
+        ) : (
+          <section className="book-state-card" role="alert">
+            <h1>词库不存在</h1>
+            <p>请返回词库列表重新选择。</p>
+          </section>
+        )}
+      </main>
+    )
+  }
+
+  if (routePath === '/dashboard') {
+    return (
+      <main className="home-shell">
+        <section className="today-card" aria-labelledby="dashboard-title">
+          <p className="eyebrow">学习反馈</p>
+          <h1 id="dashboard-title">学习看板</h1>
+          <p className="hero-copy">
+            {featuredBook?.name ?? '暂无活动词库'} · 今日已背{' '}
+            {dashboardSummary?.todayRecitedWordCount ?? studyResult?.studiedWordCount ?? 0} 个词
+          </p>
+          <div className="today-summary-grid" aria-label="学习看板概览">
+            <div>
+              <span>今日积分</span>
+              <strong>{dashboardSummary?.scoreToday ?? 0}</strong>
+            </div>
+            <div>
+              <span>已掌握</span>
+              <strong>
+                {dashboardSummary?.todayMasteredWordCount ?? studyResult?.masteredWordCount ?? 0}
+              </strong>
+            </div>
+            <div>
+              <span>连续打卡</span>
+              <strong>{latestCheckin?.streakDays ?? 0}</strong>
+            </div>
+          </div>
+          <div className="action-row">
+            <a className="primary-action" href="/home" onClick={navigateOnClick('/home')}>
+              返回今日任务
+            </a>
+            <a className="secondary-action" href="/books" onClick={navigateOnClick('/books')}>
+              词库
+            </a>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  if (routePath === '/teacher') {
+    return (
+      <main className="home-shell">
+        <section className="teacher-panel route-teacher-panel" aria-labelledby="teacher-title">
+          <p className="eyebrow">老师端</p>
+          <h1 id="teacher-title">老师进度看板</h1>
+          {!teacherUser ? (
+            <>
+              <p className="hero-copy">创建老师账号后，可以查看登录者和游客的背诵进度。</p>
+              <button className="primary-action" type="button" onClick={showTeacherProgress}>
+                创建老师账号
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="teacher-account">老师账号：{teacherUser.displayName}</p>
+              <div className="teacher-actions" aria-label="老师任务操作">
+                <button className="secondary-action" type="button" onClick={addStudentsToClass}>
+                  添加学生
+                </button>
+                <button
+                  className="primary-action"
+                  type="button"
+                  onClick={assignTeacherTask}
+                  disabled={teacherStudents.length === 0}
+                >
+                  布置背词任务
+                </button>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={evaluateTeacherTask}
+                  disabled={!teacherTask}
+                >
+                  评价学生
+                </button>
+              </div>
+
+              {teacherStudents.length > 0 ? (
+                <p className="class-status">
+                  学生已添加：{teacherStudents.map((student) => student.displayName).join('、')}
+                </p>
+              ) : null}
+
+              <div className="progress-list" aria-label="学生背诵进度">
+                {teacherProgress.map((progress) => (
+                  <div className="progress-row" key={progress.userId}>
+                    <div>
+                      <strong>{progress.displayName}</strong>
+                      <span>
+                        {progress.accountType === 'guest' ? '游客' : '登录者'} · {progress.bookName}{' '}
+                        · 第 {progress.unit} 单元
+                      </span>
+                    </div>
+                    <div className="progress-metrics">
+                      <span>
+                        已背 {progress.recitedWordCount}/{progress.plannedWordCount} 个词
+                      </span>
+                      <span>掌握 {progress.masteredWordCount} 个词</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {teacherTaskOverview ? (
+                <div className="task-overview" aria-label="老师背词任务概览">
+                  <div className="task-heading">
+                    <h3>{teacherTaskOverview.task.title}</h3>
+                    <span>截止 {teacherTaskOverview.task.dueDate}</span>
+                  </div>
+                  <div className="task-student-list">
+                    {teacherTaskOverview.students.map((row) => (
+                      <div className="task-row" key={row.student.id}>
+                        <div>
+                          <strong>{row.student.displayName}</strong>
+                          <span>{row.student.accountType === 'guest' ? '游客' : '登录者'}</span>
+                        </div>
+                        <div className="task-metrics">
+                          <span>
+                            任务进度 {row.recitedWordCount}/{row.assignedWordCount} 个词
+                          </span>
+                          <span>掌握 {row.masteredWordCount} 个词</span>
+                          <span>
+                            {row.evaluationComment
+                              ? `评价：${row.evaluationComment}`
+                              : '待老师评价'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
 
   return (
     <main className="app-shell">
@@ -753,6 +1666,14 @@ export function App() {
                 {featuredBook.name} · 第 {activePlan.unit} 单元
               </span>
               <span>每日新词 {activePlan.dailyNewWordTarget} 个</span>
+              {featuredUnit ? (
+                <span>
+                  本单元 {featuredUnit.wordCount} 个词 · 今日词卡 {activePlan.dailyNewWordTarget} 张
+                </span>
+              ) : null}
+              <span>
+                词库已导入 {importedVocabularyBookCount} 册 · {importedVocabularyWordCount} 个词
+              </span>
             </div>
           ) : null}
 
@@ -760,10 +1681,10 @@ export function App() {
             <button
               className="primary-action"
               type="button"
-              onClick={completeFirstStudySession}
+              onClick={startStudySession}
               disabled={!activePlan || !activeLearner}
             >
-              完成首组背诵
+              开始背诵
             </button>
             <button className="secondary-action" type="button" onClick={showTeacherProgress}>
               老师账号查看进度
@@ -777,6 +1698,53 @@ export function App() {
               完成今日打卡
             </button>
           </div>
+
+          {studySession && currentStudyCard && !studyResult ? (
+            <div className="study-card" aria-labelledby="study-card-title">
+              <div className="study-card-topline">
+                <h3 id="study-card-title">今日背诵</h3>
+                <span>
+                  词卡 {currentStudyCardNumber}/{studyCards.length}
+                </span>
+              </div>
+
+              <div className="study-card-body">
+                <strong>{currentStudyCard.lemma}</strong>
+                {currentStudyCard.stressedLemma ? (
+                  <span>重音：{currentStudyCard.stressedLemma}</span>
+                ) : null}
+                <span>{currentStudyCard.grammarHint}</span>
+              </div>
+
+              {!studyAnswerVisible ? (
+                <button className="secondary-action" type="button" onClick={showStudyAnswer}>
+                  显示答案
+                </button>
+              ) : (
+                <div className="study-answer" aria-live="polite">
+                  <strong>{currentStudyCard.definitionZh}</strong>
+                  <span>{currentStudyCard.exampleRu}</span>
+                  <span>{currentStudyCard.exampleZh}</span>
+                  <div className="study-answer-actions">
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => answerStudyCard('again')}
+                    >
+                      不熟
+                    </button>
+                    <button
+                      className="primary-action"
+                      type="button"
+                      onClick={() => answerStudyCard('good')}
+                    >
+                      掌握
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {studyResult ? (
             <div className="study-result" aria-live="polite">
@@ -1148,4 +2116,18 @@ function formatDateAfterDays(isoTimestamp: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days)
 
   return date.toISOString().slice(0, 10)
+}
+
+function getInitialRoutePath(): string {
+  return typeof window === 'undefined' ? '/' : getCurrentRoutePath()
+}
+
+function getCurrentRoutePath(): string {
+  return normalizeRoutePath(window.location.pathname)
+}
+
+function normalizeRoutePath(path: string): string {
+  const normalizedPath = path.split('?')[0]?.replace(/\/+$/, '') || '/'
+
+  return normalizedPath === '' ? '/' : normalizedPath
 }

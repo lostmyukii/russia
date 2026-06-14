@@ -2,13 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { App } from './App'
+import { createGuestStudyPlan } from './test-utils'
 
 describe('offline sync workflow', () => {
   it('caches a learning pack, queues offline answers and updates score only after sync', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: '访客开始学习' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+    createGuestStudyPlan()
+    fireEvent.click(screen.getByRole('link', { name: '离线学习' }))
     fireEvent.click(screen.getByRole('button', { name: '缓存离线学习包' }))
     fireEvent.click(screen.getByRole('button', { name: '断网作答' }))
 

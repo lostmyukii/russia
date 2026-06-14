@@ -8,8 +8,8 @@ describe('App shell', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: '俄语百词斩' })).toBeInTheDocument()
-    expect(screen.getByText('人教版教材单元词库')).toBeInTheDocument()
-    expect(screen.getByText('SRS 复习')).toBeInTheDocument()
-    expect(screen.getByText('背词排行榜')).toBeInTheDocument()
+    expect(screen.getByText('科学记忆 · 主动回忆 · 人教版俄语')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '开始学习' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: '隐私政策' })).toHaveAttribute('href', '/privacy.html')
   })
 })

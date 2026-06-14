@@ -2,15 +2,15 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { App } from './App'
+import { completeGuestStudySession } from './test-utils'
 
 describe('teacher task workflow', () => {
   it('lets a teacher add students, assign a task and publish an evaluation', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: '访客开始学习' }))
-    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
-    fireEvent.click(screen.getByRole('button', { name: '完成首组背诵' }))
-    fireEvent.click(screen.getByRole('button', { name: '老师账号查看进度' }))
+    completeGuestStudySession()
+    fireEvent.click(screen.getByRole('link', { name: '返回今日任务' }))
+    fireEvent.click(screen.getByRole('button', { name: '老师端' }))
     fireEvent.click(screen.getByRole('button', { name: '添加学生' }))
     fireEvent.click(screen.getByRole('button', { name: '布置背词任务' }))
     fireEvent.click(screen.getByRole('button', { name: '评价学生' }))
