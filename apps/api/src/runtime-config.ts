@@ -3,6 +3,10 @@ export type RuntimeRateLimitOptions = {
   windowMs?: number
 }
 
+export type RuntimeTeacherDataOptions = {
+  teacherDataFilePath?: string
+}
+
 export function readRateLimitOptionsFromEnv(
   env: Record<string, string | undefined>,
 ): RuntimeRateLimitOptions {
@@ -10,6 +14,14 @@ export function readRateLimitOptionsFromEnv(
     ...readPositiveIntegerEnv(env, 'RATE_LIMIT_MAX_REQUESTS', 'maxRequests'),
     ...readPositiveIntegerEnv(env, 'RATE_LIMIT_WINDOW_MS', 'windowMs'),
   }
+}
+
+export function readTeacherDataOptionsFromEnv(
+  env: Record<string, string | undefined>,
+): RuntimeTeacherDataOptions {
+  const teacherDataFilePath = env.TEACHER_DATA_FILE?.trim()
+
+  return teacherDataFilePath ? { teacherDataFilePath } : {}
 }
 
 function readPositiveIntegerEnv<TKey extends keyof RuntimeRateLimitOptions>(

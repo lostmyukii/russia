@@ -2,6 +2,8 @@ import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 
 import {
   addTeacherStudentRequestSchema,
+  createTeacherClassRequestSchema,
+  createTeacherStudentAccountRequestSchema,
   createCheckinRequestSchema,
   createTeacherEvaluationRequestSchema,
   createTeacherTaskRequestSchema,
@@ -11,7 +13,9 @@ import {
   mistakeEliminationRequestSchema,
   offlineSyncRequestSchema,
   onboardingRequestSchema,
+  resetTeacherStudentPasswordRequestSchema,
   studySessionCompleteRequestSchema,
+  teacherLoginRequestSchema,
 } from '@russian-wordscodex/contracts'
 import {
   addStudentToTeacher,
@@ -34,6 +38,8 @@ import {
   createStudyPlanFromOnboarding,
   createStudySessionFromPlan,
   createTeacherAccount,
+  createTeacherClass,
+  createTeacherManagedStudentAccount,
   createTeacherTask,
   dedupeOfflineSyncOperations,
   evaluateStudentTask,
@@ -52,12 +58,19 @@ import {
   type StudySession,
   type StudySessionCompleteRequest,
   type StudySessionResult,
+  type TeacherClass,
   type TeacherEvaluation,
   type TeacherStudent,
   type TeacherTask,
   type TeacherUser,
   type UserWordProgress,
 } from '@russian-wordscodex/domain'
+
+import {
+  loadTeacherDataState,
+  saveTeacherDataState,
+  type PersistedTeacherAccount,
+} from './teacher-data-store'
 
 type RateLimitOptions = {
   maxRequests: number
@@ -66,6 +79,7 @@ type RateLimitOptions = {
 
 type BuildAppOptions = {
   rateLimit?: Partial<RateLimitOptions>
+  teacherDataFilePath?: string
 }
 
 const defaultRateLimit: RateLimitOptions = {
@@ -82,16 +96,42 @@ export function buildApp(options: BuildAppOptions = {}) {
   const app = Fastify({
     logger: false,
   })
+  const loadedTeacherData = loadTeacherDataState({
+    filePath: options.teacherDataFilePath,
+    now: new Date().toISOString(),
+  })
   const rateLimitOptions = {
     ...defaultRateLimit,
     ...options.rateLimit,
   }
   const rateLimitBuckets = new Map<string, RateLimitBucket>()
-  const learners = new Map<string, LearnerAccount>()
-  const teachers = new Map<string, TeacherUser>()
-  const teacherStudents = new Map<string, TeacherStudent>()
-  const teacherTasks = new Map<string, TeacherTask>()
-  const teacherEvaluations = new Map<string, TeacherEvaluation>()
+  const learners = new Map<string, LearnerAccount>(
+    loadedTeacherData.learners.map((learner) => [learner.id, learner]),
+  )
+  const teacherCredentials = new Map<string, { username: string; password: string }>(
+    loadedTeacherData.teachers.map((teacher) => [
+      teacher.id,
+      {
+        username: teacher.username,
+        password: teacher.password,
+      },
+    ]),
+  )
+  const teachers = new Map<string, TeacherUser>(
+    loadedTeacherData.teachers.map((teacher) => [teacher.id, stripTeacherCredential(teacher)]),
+  )
+  const teacherStudents = new Map<string, TeacherStudent>(
+    loadedTeacherData.students.map((student) => [student.id, student]),
+  )
+  const teacherClasses = new Map<string, TeacherClass>(
+    loadedTeacherData.classes.map((teacherClass) => [teacherClass.id, teacherClass]),
+  )
+  const teacherTasks = new Map<string, TeacherTask>(
+    loadedTeacherData.tasks.map((task) => [task.id, task]),
+  )
+  const teacherEvaluations = new Map<string, TeacherEvaluation>(
+    loadedTeacherData.evaluations.map((evaluation) => [evaluation.id, evaluation]),
+  )
   const activeStudyPlans = new Map<string, StudyPlan>()
   const studySessions = new Map<string, StudySession>()
   const studyResults = new Map<string, StudySessionResult>()
@@ -101,6 +141,25 @@ export function buildApp(options: BuildAppOptions = {}) {
   const completionResultsByIdempotencyKey = new Map<string, StudySessionResult>()
   const mistakeResultsByIdempotencyKey = new Map<string, UserWordProgress>()
   const checkinsByIdempotencyKey = new Map<string, CheckinRecord>()
+
+  const persistTeacherData = () => {
+    saveTeacherDataState(options.teacherDataFilePath, {
+      teachers: Array.from(teachers.values()).map((teacher) => ({
+        ...teacher,
+        ...(teacherCredentials.get(teacher.id) ?? {
+          username: teacher.id,
+          password: '',
+        }),
+      })),
+      learners: Array.from(learners.values()).filter(
+        (learner) => learner.accountType === 'registered',
+      ),
+      students: Array.from(teacherStudents.values()),
+      classes: Array.from(teacherClasses.values()),
+      tasks: Array.from(teacherTasks.values()),
+      evaluations: Array.from(teacherEvaluations.values()),
+    })
+  }
 
   app.addHook('onRequest', (request, reply, done) => {
     applySecurityHeaders(reply)
@@ -273,10 +332,55 @@ export function buildApp(options: BuildAppOptions = {}) {
   })
 
   app.post('/api/v1/auth/teacher', () => {
-    const user = createTeacherAccount({ now: new Date().toISOString() })
+    const existingTeacher = Array.from(teachers.values())[0]
+    const user = existingTeacher ?? createTeacherAccount({ now: new Date().toISOString() })
     teachers.set(user.id, user)
+    if (!teacherCredentials.has(user.id)) {
+      teacherCredentials.set(user.id, {
+        username: 'teacher01',
+        password: 'teacher123456',
+      })
+    }
+    persistTeacherData()
 
     return { user }
+  })
+
+  app.post('/api/v1/auth/teacher-login', (request, reply) => {
+    const parsedRequest = teacherLoginRequestSchema.safeParse(request.body)
+
+    if (!parsedRequest.success) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_LOGIN_REQUEST_INVALID',
+          message: '老师登录参数不完整。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const teacher = Array.from(teachers.values()).find((candidate) => {
+      const credential = teacherCredentials.get(candidate.id)
+
+      return (
+        credential?.username === parsedRequest.data.username &&
+        credential.password === parsedRequest.data.password
+      )
+    })
+
+    if (!teacher) {
+      reply.code(401)
+      return {
+        error: {
+          code: 'TEACHER_LOGIN_FAILED',
+          message: '老师账号或密码不正确。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    return { user: teacher }
   })
 
   app.post('/api/v1/study-plans', (request, reply) => {
@@ -711,10 +815,11 @@ export function buildApp(options: BuildAppOptions = {}) {
   })
 
   app.get('/api/v1/leaderboard', (request, reply) => {
-    const { scope, bookId, teacherId, now } = request.query as {
+    const { scope, bookId, teacherId, classId, now } = request.query as {
       scope?: LeaderboardScope
       bookId?: string
       teacherId?: string
+      classId?: string
       now?: string
     }
     const parsedScope = leaderboardScopeSchema.safeParse(scope ?? 'daily')
@@ -733,8 +838,14 @@ export function buildApp(options: BuildAppOptions = {}) {
     const leaderboardNow = now ?? new Date().toISOString()
     const classStudents =
       parsedScope.data === 'class' && teacherId
-        ? Array.from(teacherStudents.values()).filter((student) => student.teacherId === teacherId)
+        ? getClassLeaderboardStudents({
+            teacherId,
+            classId: classId ?? null,
+            teacherStudents,
+            teacherClasses,
+          })
         : []
+    const leaderboardClassId = parsedScope.data === 'class' ? (classId ?? teacherId ?? null) : null
 
     return {
       scope: parsedScope.data,
@@ -745,7 +856,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         checkins: Array.from(checkins.values()),
         now: leaderboardNow,
         bookId: bookId ?? null,
-        classId: teacherId ?? null,
+        classId: leaderboardClassId,
         classLearnerIds: classStudents.map((student) => student.learnerId),
       }),
     }
@@ -828,6 +939,188 @@ export function buildApp(options: BuildAppOptions = {}) {
     }
   })
 
+  app.post('/api/v1/teacher/classes', (request, reply) => {
+    const parsedRequest = createTeacherClassRequestSchema.safeParse(request.body)
+
+    if (!parsedRequest.success) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_CLASS_REQUEST_INVALID',
+          message: '创建班级参数不完整。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const teacher = teachers.get(parsedRequest.data.teacherId)
+
+    if (!teacher) {
+      reply.code(404)
+      return {
+        error: {
+          code: 'TEACHER_NOT_FOUND',
+          message: '未找到老师账号。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    try {
+      const teacherClass = createTeacherClass({
+        teacherId: teacher.id,
+        name: parsedRequest.data.name,
+        now: new Date().toISOString(),
+      })
+      const existingClass = teacherClasses.get(teacherClass.id)
+      const result = existingClass ?? teacherClass
+      teacherClasses.set(result.id, result)
+      persistTeacherData()
+
+      return { class: result }
+    } catch (error) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_CLASS_CREATE_FAILED',
+          message: error instanceof Error ? error.message : '创建班级失败。',
+          requestId: request.id,
+        },
+      }
+    }
+  })
+
+  app.get('/api/v1/teacher/classes', (request, reply) => {
+    const { teacherId } = request.query as { teacherId?: string }
+
+    if (!teacherId) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_ID_REQUIRED',
+          message: '查询班级需要 teacherId。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    if (!teachers.has(teacherId)) {
+      reply.code(404)
+      return {
+        error: {
+          code: 'TEACHER_NOT_FOUND',
+          message: '未找到老师账号。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    return {
+      classes: Array.from(teacherClasses.values())
+        .filter((teacherClass) => teacherClass.teacherId === teacherId)
+        .map((teacherClass) => ({
+          ...teacherClass,
+          students: teacherClass.studentIds
+            .map((studentId) => teacherStudents.get(studentId))
+            .filter((student): student is TeacherStudent => student !== undefined),
+        })),
+    }
+  })
+
+  app.post('/api/v1/teacher/student-accounts', (request, reply) => {
+    const parsedRequest = createTeacherStudentAccountRequestSchema.safeParse(request.body)
+
+    if (!parsedRequest.success) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_STUDENT_ACCOUNT_REQUEST_INVALID',
+          message: '新增学生账号参数不完整。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const teacher = teachers.get(parsedRequest.data.teacherId)
+
+    if (!teacher) {
+      reply.code(404)
+      return {
+        error: {
+          code: 'TEACHER_NOT_FOUND',
+          message: '未找到老师账号。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const targetClass = parsedRequest.data.classId
+      ? teacherClasses.get(parsedRequest.data.classId)
+      : null
+
+    if (
+      parsedRequest.data.classId &&
+      (!targetClass || targetClass.teacherId !== parsedRequest.data.teacherId)
+    ) {
+      reply.code(404)
+      return {
+        error: {
+          code: 'TEACHER_CLASS_NOT_FOUND',
+          message: '未找到要加入的班级。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const usernameAlreadyUsed = Array.from(teacherStudents.values()).some(
+      (student) => student.loginUsername === parsedRequest.data.username,
+    )
+
+    if (usernameAlreadyUsed) {
+      reply.code(409)
+      return {
+        error: {
+          code: 'TEACHER_STUDENT_USERNAME_EXISTS',
+          message: '学生账号已存在。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    try {
+      const { learner, student } = createTeacherManagedStudentAccount({
+        teacher,
+        displayName: parsedRequest.data.displayName,
+        username: parsedRequest.data.username,
+        password: parsedRequest.data.password,
+        classId: parsedRequest.data.classId ?? null,
+        now: new Date().toISOString(),
+      })
+      learners.set(learner.id, learner)
+      teacherStudents.set(student.id, student)
+
+      if (targetClass && !targetClass.studentIds.includes(student.id)) {
+        teacherClasses.set(targetClass.id, {
+          ...targetClass,
+          studentIds: [...targetClass.studentIds, student.id],
+        })
+      }
+
+      persistTeacherData()
+
+      return { student }
+    } catch (error) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_STUDENT_ACCOUNT_CREATE_FAILED',
+          message: error instanceof Error ? error.message : '新增学生账号失败。',
+          requestId: request.id,
+        },
+      }
+    }
+  })
+
   app.post('/api/v1/teacher/students', (request, reply) => {
     const parsedRequest = addTeacherStudentRequestSchema.safeParse(request.body)
 
@@ -871,11 +1164,63 @@ export function buildApp(options: BuildAppOptions = {}) {
     const student = addStudentToTeacher({
       teacher,
       learner,
+      classId: parsedRequest.data.classId ?? null,
       now: new Date().toISOString(),
     })
     teacherStudents.set(student.id, student)
 
+    if (parsedRequest.data.classId) {
+      const teacherClass = teacherClasses.get(parsedRequest.data.classId)
+
+      if (teacherClass && !teacherClass.studentIds.includes(student.id)) {
+        teacherClasses.set(teacherClass.id, {
+          ...teacherClass,
+          studentIds: [...teacherClass.studentIds, student.id],
+        })
+      }
+    }
+
+    persistTeacherData()
+
     return { student }
+  })
+
+  app.patch('/api/v1/teacher/students/:studentId/password', (request, reply) => {
+    const { studentId } = request.params as { studentId: string }
+    const parsedRequest = resetTeacherStudentPasswordRequestSchema.safeParse(request.body)
+
+    if (!parsedRequest.success) {
+      reply.code(400)
+      return {
+        error: {
+          code: 'TEACHER_STUDENT_PASSWORD_REQUEST_INVALID',
+          message: '重置密码参数不完整。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const student = teacherStudents.get(studentId)
+
+    if (!student || student.teacherId !== parsedRequest.data.teacherId) {
+      reply.code(404)
+      return {
+        error: {
+          code: 'TEACHER_STUDENT_NOT_FOUND',
+          message: '未找到要重置密码的学生。',
+          requestId: request.id,
+        },
+      }
+    }
+
+    const updatedStudent = {
+      ...student,
+      initialPassword: parsedRequest.data.password,
+    }
+    teacherStudents.set(updatedStudent.id, updatedStudent)
+    persistTeacherData()
+
+    return { student: updatedStudent }
   })
 
   app.post('/api/v1/teacher/tasks', (request, reply) => {
@@ -932,6 +1277,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         now: new Date().toISOString(),
       })
       teacherTasks.set(task.id, task)
+      persistTeacherData()
 
       return { task }
     } catch (error) {
@@ -996,6 +1342,7 @@ export function buildApp(options: BuildAppOptions = {}) {
         now: new Date().toISOString(),
       })
       teacherEvaluations.set(evaluation.id, evaluation)
+      persistTeacherData()
 
       return { evaluation }
     } catch (error) {
@@ -1058,6 +1405,43 @@ export function buildApp(options: BuildAppOptions = {}) {
   })
 
   return app
+}
+
+function stripTeacherCredential(teacher: PersistedTeacherAccount): TeacherUser {
+  return {
+    id: teacher.id,
+    displayName: teacher.displayName,
+    accountType: teacher.accountType,
+    role: teacher.role,
+    timezone: teacher.timezone,
+    createdAt: teacher.createdAt,
+  }
+}
+
+function getClassLeaderboardStudents({
+  teacherId,
+  classId,
+  teacherStudents,
+  teacherClasses,
+}: {
+  teacherId: string
+  classId: string | null
+  teacherStudents: Map<string, TeacherStudent>
+  teacherClasses: Map<string, TeacherClass>
+}): TeacherStudent[] {
+  if (!classId) {
+    return Array.from(teacherStudents.values()).filter((student) => student.teacherId === teacherId)
+  }
+
+  const teacherClass = teacherClasses.get(classId)
+
+  if (!teacherClass || teacherClass.teacherId !== teacherId) {
+    return []
+  }
+
+  return teacherClass.studentIds
+    .map((studentId) => teacherStudents.get(studentId))
+    .filter((student): student is TeacherStudent => student !== undefined)
 }
 
 function getProgressKey(userId: string, wordId: string): string {

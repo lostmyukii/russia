@@ -114,28 +114,48 @@ model TeacherAccount {
   timezone    String
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  classes     TeacherClass[]
   students    TeacherStudent[]
   tasks       TeacherTask[]
   evaluations TeacherEvaluation[]
 }
 
+model TeacherClass {
+  id        String           @id
+  teacherId String
+  name      String
+  createdAt DateTime
+  updatedAt DateTime         @updatedAt
+  teacher   TeacherAccount   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  students  TeacherStudent[]
+
+  @@unique([teacherId, name])
+  @@index([teacherId])
+}
+
 model TeacherStudent {
-  id          String                  @id
-  teacherId   String
-  learnerId   String
-  displayName String
-  accountType String
-  joinedAt    DateTime
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  teacher     TeacherAccount          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  learner     Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  assignments TeacherTaskAssignment[]
-  evaluations TeacherEvaluation[]
+  id              String                  @id
+  teacherId       String
+  learnerId       String
+  classId         String?
+  displayName     String
+  accountType     String
+  loginUsername   String
+  initialPassword String
+  joinedAt        DateTime
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  teacher         TeacherAccount          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  learner         Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  teacherClass    TeacherClass?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  assignments     TeacherTaskAssignment[]
+  evaluations     TeacherEvaluation[]
 
   @@unique([teacherId, learnerId])
+  @@unique([teacherId, loginUsername])
   @@index([teacherId])
   @@index([learnerId])
+  @@index([classId])
 }
 
 model TeacherTask {

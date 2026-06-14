@@ -89,10 +89,23 @@ export const teacherStudentSchema = z.object({
   learnerId: z.string().min(1),
   displayName: z.string().min(1),
   accountType: z.enum(['guest', 'registered']),
+  loginUsername: z.string().min(1),
+  initialPassword: z.string().min(1),
+  classId: z.string().min(1).nullable(),
   joinedAt: z.string().datetime(),
 })
 
 export type TeacherStudent = z.infer<typeof teacherStudentSchema>
+
+export const teacherClassSchema = z.object({
+  id: z.string().min(1),
+  teacherId: z.string().min(1),
+  name: z.string().min(1),
+  studentIds: z.array(z.string().min(1)),
+  createdAt: z.string().datetime(),
+})
+
+export type TeacherClass = z.infer<typeof teacherClassSchema>
 
 export const teacherTaskStatusSchema = z.enum(['active', 'completed', 'archived'])
 
@@ -152,9 +165,45 @@ export type TeacherTaskOverview = z.infer<typeof teacherTaskOverviewSchema>
 export const addTeacherStudentRequestSchema = z.object({
   teacherId: z.string().min(1),
   learnerId: z.string().min(1),
+  classId: z.string().min(1).nullable().optional(),
 })
 
 export type AddTeacherStudentRequest = z.infer<typeof addTeacherStudentRequestSchema>
+
+export const teacherLoginRequestSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+})
+
+export type TeacherLoginRequest = z.infer<typeof teacherLoginRequestSchema>
+
+export const createTeacherClassRequestSchema = z.object({
+  teacherId: z.string().min(1),
+  name: z.string().min(1),
+})
+
+export type CreateTeacherClassRequest = z.infer<typeof createTeacherClassRequestSchema>
+
+export const createTeacherStudentAccountRequestSchema = z.object({
+  teacherId: z.string().min(1),
+  classId: z.string().min(1).nullable().optional(),
+  displayName: z.string().min(1),
+  username: z.string().min(1),
+  password: z.string().min(1),
+})
+
+export type CreateTeacherStudentAccountRequest = z.infer<
+  typeof createTeacherStudentAccountRequestSchema
+>
+
+export const resetTeacherStudentPasswordRequestSchema = z.object({
+  teacherId: z.string().min(1),
+  password: z.string().min(1),
+})
+
+export type ResetTeacherStudentPasswordRequest = z.infer<
+  typeof resetTeacherStudentPasswordRequestSchema
+>
 
 export const createTeacherTaskRequestSchema = z.object({
   teacherId: z.string().min(1),

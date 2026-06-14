@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { readRateLimitOptionsFromEnv } from '../src/runtime-config'
+import { readRateLimitOptionsFromEnv, readTeacherDataOptionsFromEnv } from '../src/runtime-config'
 
 describe('runtime config', () => {
   it('reads rate limit options from environment variables', () => {
@@ -22,5 +22,15 @@ describe('runtime config', () => {
         RATE_LIMIT_WINDOW_MS: '-1',
       }),
     ).toEqual({})
+  })
+
+  it('reads teacher data file path from environment variables', () => {
+    expect(
+      readTeacherDataOptionsFromEnv({
+        TEACHER_DATA_FILE: '/data/teacher-data.json',
+      }),
+    ).toEqual({
+      teacherDataFilePath: '/data/teacher-data.json',
+    })
   })
 })

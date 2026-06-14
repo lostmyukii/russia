@@ -1,8 +1,9 @@
 import { buildApp } from './app'
-import { readRateLimitOptionsFromEnv } from './runtime-config'
+import { readRateLimitOptionsFromEnv, readTeacherDataOptionsFromEnv } from './runtime-config'
 
 const app = buildApp({
   rateLimit: readRateLimitOptionsFromEnv(process.env),
+  ...readTeacherDataOptionsFromEnv(process.env),
 })
 const port = Number.parseInt(process.env.PORT ?? '4000', 10)
 const host = process.env.HOST ?? '0.0.0.0'

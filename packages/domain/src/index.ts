@@ -153,7 +153,16 @@ export type TeacherStudent = {
   accountType: LearnerAccount['accountType']
   loginUsername: string
   initialPassword: string
+  classId: string | null
   joinedAt: string
+}
+
+export type TeacherClass = {
+  id: string
+  teacherId: string
+  name: string
+  studentIds: string[]
+  createdAt: string
 }
 
 export type TeacherTaskStatus = 'active' | 'completed' | 'archived'
@@ -533,10 +542,12 @@ export function createTeacherAccount({ now }: { now: string }): TeacherUser {
 export function addStudentToTeacher({
   teacher,
   learner,
+  classId = null,
   now,
 }: {
   teacher: TeacherUser
   learner: LearnerAccount
+  classId?: string | null
   now: string
 }): TeacherStudent {
   const loginCredential = createTeacherStudentLoginCredential(learner)
@@ -549,8 +560,99 @@ export function addStudentToTeacher({
     accountType: learner.accountType,
     loginUsername: loginCredential.username,
     initialPassword: loginCredential.password,
+    classId,
     joinedAt: now,
   }
+}
+
+export function createTeacherClass({
+  teacherId,
+  name,
+  now,
+}: {
+  teacherId: string
+  name: string
+  now: string
+}): TeacherClass {
+  const trimmedName = name.trim()
+
+  if (!trimmedName) {
+    throw new Error('班级名称不能为空')
+  }
+
+  return {
+    id: `class_${teacherId}_${slugifyAccountPart(trimmedName)}`,
+    teacherId,
+    name: trimmedName,
+    studentIds: [],
+    createdAt: now,
+  }
+}
+
+export function createTeacherManagedStudentAccount({
+  teacher,
+  displayName,
+  username,
+  password,
+  classId,
+  now,
+}: {
+  teacher: TeacherUser
+  displayName: string
+  username: string
+  password: string
+  classId?: string | null
+  now: string
+}): { learner: RegisteredLearner; student: TeacherStudent } {
+  const trimmedDisplayName = displayName.trim()
+  const trimmedUsername = username.trim()
+  const trimmedPassword = password.trim()
+
+  if (!trimmedDisplayName) {
+    throw new Error('学生姓名不能为空')
+  }
+
+  if (!trimmedUsername) {
+    throw new Error('学生账号不能为空')
+  }
+
+  if (!trimmedPassword) {
+    throw new Error('学生密码不能为空')
+  }
+
+  const learner: RegisteredLearner = {
+    id: `learner_${slugifyAccountPart(trimmedUsername)}`,
+    displayName: trimmedDisplayName,
+    accountType: 'registered',
+    role: 'learner',
+    timezone: 'Asia/Shanghai',
+    createdAt: now,
+  }
+
+  return {
+    learner,
+    student: {
+      id: `student_${teacher.id}_${learner.id}`,
+      teacherId: teacher.id,
+      learnerId: learner.id,
+      displayName: learner.displayName,
+      accountType: learner.accountType,
+      loginUsername: trimmedUsername,
+      initialPassword: trimmedPassword,
+      classId: classId ?? null,
+      joinedAt: now,
+    },
+  }
+}
+
+function slugifyAccountPart(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return slug || 'default'
 }
 
 function createTeacherStudentLoginCredential(learner: LearnerAccount): {

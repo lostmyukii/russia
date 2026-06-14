@@ -20,6 +20,8 @@ import {
   createStudyPlanFromOnboarding,
   createStudySessionFromPlan,
   createTeacherAccount,
+  createTeacherClass,
+  createTeacherManagedStudentAccount,
   createTeacherTask,
   getQueuedOfflineSyncOperations,
   evaluateStudentTask,
@@ -44,6 +46,7 @@ import {
   type StudySessionResult,
   type StudyWordCard,
   type TeacherStudent,
+  type TeacherClass,
   type TeacherTask,
   type TeacherTaskOverview,
   type TeacherUser,
@@ -94,6 +97,26 @@ type TeacherDashboardMetrics = {
   masteredWordCount: number
   averageCompletionRate: number
   pendingEvaluationCount: number
+}
+
+function syncTeacherApi(
+  path: string,
+  payload: Record<string, unknown>,
+  method: 'PATCH' | 'POST' = 'POST',
+) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window
+    .fetch(path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    .catch(() => undefined)
 }
 
 export function App() {
@@ -154,6 +177,7 @@ export function App() {
   const [classPlans, setClassPlans] = useState<StudyPlan[]>([])
   const [classResults, setClassResults] = useState<StudySessionResult[]>([])
   const [teacherStudents, setTeacherStudents] = useState<TeacherStudent[]>([])
+  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([])
   const [teacherTask, setTeacherTask] = useState<TeacherTask | null>(null)
   const [teacherTaskOverview, setTeacherTaskOverview] = useState<TeacherTaskOverview | null>(null)
   const [reviewProgress, setReviewProgress] = useState<UserWordProgress | null>(null)
@@ -302,6 +326,10 @@ export function App() {
       setLoginMessage(`已登录：${teacherAccount.displayName}`)
       setLoginUsername(teacherAccount.username)
       setLoginPassword('')
+      syncTeacherApi('/api/v1/auth/teacher-login', {
+        username: teacherAccount.username,
+        password: teacherAccount.password,
+      })
       seedTeacherDashboard({ teacher, now })
       navigateTo('/teacher')
       return
@@ -383,6 +411,7 @@ export function App() {
     setClassPlans([])
     setClassResults([])
     setTeacherStudents([])
+    setTeacherClasses([])
     setTeacherTask(null)
     setTeacherTaskOverview(null)
     setOfflineLearningPack(null)
@@ -757,6 +786,7 @@ export function App() {
     setClassPlans(plans)
     setClassResults(results)
     setTeacherStudents([])
+    setTeacherClasses([])
     setTeacherTask(null)
     setTeacherTaskOverview(null)
   }
@@ -766,19 +796,129 @@ export function App() {
     navigateTo('/teacher')
   }
 
+  function ensureDefaultTeacherClass(now: string): TeacherClass | null {
+    if (!teacherUser) {
+      return null
+    }
+
+    const existingClass = teacherClasses[0]
+
+    if (existingClass) {
+      return existingClass
+    }
+
+    const teacherClass = createTeacherClass({
+      teacherId: teacherUser.id,
+      name: '七年级一班',
+      now,
+    })
+    setTeacherClasses([teacherClass])
+    syncTeacherApi('/api/v1/teacher/classes', {
+      teacherId: teacherUser.id,
+      name: teacherClass.name,
+    })
+
+    return teacherClass
+  }
+
+  function createDefaultTeacherClass() {
+    ensureDefaultTeacherClass(new Date().toISOString())
+  }
+
   function addStudentsToClass() {
     if (!teacherUser || classLearners.length === 0) {
       return
     }
 
     const now = new Date().toISOString()
+    const teacherClass = ensureDefaultTeacherClass(now)
     const students = classLearners.map((learner) =>
-      addStudentToTeacher({ teacher: teacherUser, learner, now }),
+      addStudentToTeacher({
+        teacher: teacherUser,
+        learner,
+        classId: teacherClass?.id ?? null,
+        now,
+      }),
     )
 
     setTeacherStudents(students)
+    if (teacherClass) {
+      setTeacherClasses([
+        {
+          ...teacherClass,
+          studentIds: students.map((student) => student.id),
+        },
+      ])
+    }
     setTeacherTask(null)
     setTeacherTaskOverview(null)
+  }
+
+  function addManagedStudentAccount() {
+    if (!teacherUser) {
+      return
+    }
+
+    const now = new Date().toISOString()
+    const teacherClass = ensureDefaultTeacherClass(now)
+
+    if (teacherStudents.some((student) => student.loginUsername === 'anna01')) {
+      return
+    }
+
+    const { learner, student } = createTeacherManagedStudentAccount({
+      teacher: teacherUser,
+      displayName: '安娜',
+      username: 'anna01',
+      password: 'ru2026',
+      classId: teacherClass?.id ?? null,
+      now,
+    })
+    const nextStudents = [...teacherStudents, student]
+
+    setClassLearners((currentLearners) => [...currentLearners, learner])
+    setTeacherStudents(nextStudents)
+    syncTeacherApi('/api/v1/teacher/student-accounts', {
+      teacherId: teacherUser.id,
+      classId: teacherClass?.id ?? null,
+      displayName: student.displayName,
+      username: student.loginUsername,
+      password: student.initialPassword,
+    })
+    if (teacherClass) {
+      setTeacherClasses([
+        {
+          ...teacherClass,
+          studentIds: Array.from(new Set([...teacherClass.studentIds, student.id])),
+        },
+      ])
+    }
+  }
+
+  function resetFirstStudentPassword() {
+    const targetStudent = teacherStudents[teacherStudents.length - 1]
+
+    if (teacherUser && targetStudent) {
+      syncTeacherApi(
+        `/api/v1/teacher/students/${targetStudent.id}/password`,
+        {
+          teacherId: teacherUser.id,
+          password: 'ru2027',
+        },
+        'PATCH',
+      )
+    }
+
+    setTeacherStudents((currentStudents) =>
+      currentStudents.map((student, index) =>
+        index === currentStudents.length - 1
+          ? {
+              ...student,
+              initialPassword: 'ru2027',
+            }
+          : student,
+      ),
+    )
   }
 
   function assignTeacherTask() {
@@ -952,6 +1092,12 @@ export function App() {
     students: teacherStudents,
     task: teacherTask,
     taskOverview: teacherTaskOverview,
+  })
+  const selectedTeacherClass = teacherClasses[0] ?? null
+  const teacherClassLeaderboard = buildTeacherClassLeaderboard({
+    progressSummaries: teacherProgress,
+    students: teacherStudents,
+    teacherClass: selectedTeacherClass,
   })
 
   function answerRecallOption(option: string) {
@@ -1777,8 +1923,30 @@ export function App() {
               <p className="teacher-account">老师账号：{teacherUser.displayName}</p>
               <TeacherDashboardOverview metrics={teacherDashboardMetrics} />
               <div className="teacher-actions" aria-label="老师任务操作">
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={createDefaultTeacherClass}
+                >
+                  创建班级
+                </button>
                 <button className="secondary-action" type="button" onClick={addStudentsToClass}>
                   添加学生
+                </button>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={addManagedStudentAccount}
+                >
+                  新增学生账号
+                </button>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={resetFirstStudentPassword}
+                  disabled={teacherStudents.length === 0}
+                >
+                  重置学生密码
                 </button>
                 <button
                   className="primary-action"
@@ -1805,6 +1973,14 @@ export function App() {
               ) : null}
               {teacherStudents.length > 0 ? (
                 <TeacherStudentCredentialsList students={teacherStudents} />
+              ) : null}
+              {selectedTeacherClass ? (
+                <TeacherClassPanel teacherClass={selectedTeacherClass} students={teacherStudents} />
+              ) : null}
+              {teacherClassLeaderboard.length > 0 ? (
+                <div className="teacher-class-leaderboard" aria-label="班级排行榜">
+                  <LeaderboardPanel title="班级排行榜" entries={teacherClassLeaderboard} />
+                </div>
               ) : null}
 
               <div className="progress-list" aria-label="学生背诵进度">
@@ -2223,8 +2399,26 @@ export function App() {
             <p className="teacher-account">老师账号：{teacherUser.displayName}</p>
             <TeacherDashboardOverview metrics={teacherDashboardMetrics} />
             <div className="teacher-actions" aria-label="老师任务操作">
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={createDefaultTeacherClass}
+              >
+                创建班级
+              </button>
               <button className="secondary-action" type="button" onClick={addStudentsToClass}>
                 添加学生
+              </button>
+              <button className="secondary-action" type="button" onClick={addManagedStudentAccount}>
+                新增学生账号
+              </button>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={resetFirstStudentPassword}
+                disabled={teacherStudents.length === 0}
+              >
+                重置学生密码
               </button>
               <button
                 className="primary-action"
@@ -2251,6 +2445,14 @@ export function App() {
             ) : null}
             {teacherStudents.length > 0 ? (
               <TeacherStudentCredentialsList students={teacherStudents} />
+            ) : null}
+            {selectedTeacherClass ? (
+              <TeacherClassPanel teacherClass={selectedTeacherClass} students={teacherStudents} />
+            ) : null}
+            {teacherClassLeaderboard.length > 0 ? (
+              <div className="teacher-class-leaderboard" aria-label="班级排行榜">
+                <LeaderboardPanel title="班级排行榜" entries={teacherClassLeaderboard} />
+              </div>
             ) : null}
 
             <div className="progress-list" aria-label="学生背诵进度">
@@ -2445,6 +2647,28 @@ function TeacherStudentCredentialsList({ students }: { students: TeacherStudent[
           <span>初始密码：{student.initialPassword}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+function TeacherClassPanel({
+  teacherClass,
+  students,
+}: {
+  teacherClass: TeacherClass
+  students: TeacherStudent[]
+}) {
+  const classStudents = students.filter((student) => student.classId === teacherClass.id)
+
+  return (
+    <div className="teacher-class-panel" aria-label="班级分组">
+      <strong>当前班级：{teacherClass.name}</strong>
+      <span>
+        班级成员：
+        {classStudents.length > 0
+          ? classStudents.map((student) => student.displayName).join('、')
+          : '暂未添加'}
+      </span>
     </div>
   )
 }
@@ -2652,6 +2876,65 @@ function buildTeacherDashboardMetrics({
     averageCompletionRate,
     pendingEvaluationCount,
   }
+}
+
+function buildTeacherClassLeaderboard({
+  progressSummaries,
+  students,
+  teacherClass,
+}: {
+  progressSummaries: LearnerProgressSummary[]
+  students: TeacherStudent[]
+  teacherClass: TeacherClass | null
+}): LeaderboardEntry[] {
+  if (!teacherClass) {
+    return []
+  }
+
+  const classStudentIds = new Set(teacherClass.studentIds)
+  const classStudents = students.filter((student) => classStudentIds.has(student.id))
+  const progressByLearnerId = new Map(
+    progressSummaries.map((progress) => [progress.userId, progress]),
+  )
+
+  return classStudents
+    .map((student) => {
+      const progress = progressByLearnerId.get(student.learnerId)
+      const recitedWordCount = progress?.recitedWordCount ?? 0
+      const masteredWordCount = progress?.masteredWordCount ?? 0
+
+      return {
+        scope: 'class',
+        userId: student.learnerId,
+        displayName: student.displayName,
+        accountType: student.accountType,
+        score: masteredWordCount * 10 + recitedWordCount * 3,
+        rank: 1,
+        masteredWordCount,
+        reviewCompletionRate:
+          recitedWordCount === 0 ? 0 : Math.min(1, masteredWordCount / recitedWordCount),
+        streakDays: 0,
+        bookId: null,
+        classId: teacherClass.id,
+        updatedAt: new Date().toISOString(),
+      } satisfies LeaderboardEntry
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return right.score - left.score
+      }
+
+      if (left.masteredWordCount !== right.masteredWordCount) {
+        return right.masteredWordCount - left.masteredWordCount
+      }
+
+      return left.displayName.localeCompare(right.displayName, 'zh-CN')
+    })
+    .map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }))
 }
 
 function buildRecallOptions(currentCard: StudyWordCard): string[] {

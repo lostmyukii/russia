@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addTeacherStudentRequestSchema,
+  createTeacherClassRequestSchema,
   createTeacherEvaluationRequestSchema,
+  createTeacherStudentAccountRequestSchema,
   createTeacherTaskRequestSchema,
+  resetTeacherStudentPasswordRequestSchema,
+  teacherClassSchema,
   teacherEvaluationSchema,
+  teacherLoginRequestSchema,
   teacherStudentSchema,
   teacherTaskOverviewSchema,
   teacherTaskSchema,
@@ -18,7 +23,17 @@ describe('teacher task contracts', () => {
       learnerId: 'learner_demo_20260614000000',
       displayName: '登录学习者',
       accountType: 'registered',
+      loginUsername: 'student01',
+      initialPassword: 'ru123456',
+      classId: 'class_teacher_demo_ru_g7_1',
       joinedAt: '2026-06-14T00:00:00.000Z',
+    })
+    const teacherClass = teacherClassSchema.parse({
+      id: 'class_teacher_demo_ru_g7_1',
+      teacherId: 'teacher_demo_ru',
+      name: '七年级一班',
+      studentIds: [student.id],
+      createdAt: '2026-06-14T00:00:00.000Z',
     })
 
     const task = teacherTaskSchema.parse({
@@ -67,6 +82,7 @@ describe('teacher task contracts', () => {
       students: [
         {
           student: {
+            classId: teacherClass.id,
             displayName: '登录学习者',
           },
           evaluationComment: '词义掌握稳定，继续保持。',
@@ -76,6 +92,49 @@ describe('teacher task contracts', () => {
   })
 
   it('validates teacher write requests before API handlers use them', () => {
+    expect(
+      teacherLoginRequestSchema.parse({
+        username: 'teacher01',
+        password: 'teacher123456',
+      }),
+    ).toEqual({
+      username: 'teacher01',
+      password: 'teacher123456',
+    })
+
+    expect(
+      createTeacherClassRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        name: '七年级一班',
+      }),
+    ).toEqual({
+      teacherId: 'teacher_demo_ru',
+      name: '七年级一班',
+    })
+
+    expect(
+      createTeacherStudentAccountRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        classId: 'class_teacher_demo_ru_g7_1',
+        displayName: '安娜',
+        username: 'anna01',
+        password: 'ru2026',
+      }),
+    ).toMatchObject({
+      displayName: '安娜',
+      username: 'anna01',
+    })
+
+    expect(
+      resetTeacherStudentPasswordRequestSchema.parse({
+        teacherId: 'teacher_demo_ru',
+        password: 'ru2027',
+      }),
+    ).toEqual({
+      teacherId: 'teacher_demo_ru',
+      password: 'ru2027',
+    })
+
     expect(
       addTeacherStudentRequestSchema.parse({
         teacherId: 'teacher_demo_ru',

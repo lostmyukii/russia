@@ -8,8 +8,11 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 4000
+      TEACHER_DATA_FILE: /data/teacher-data.json
     expose:
       - '4000'
+    volumes:
+      - teacher-data:/data
     restart: unless-stopped
     healthcheck:
       test:
@@ -38,3 +41,6 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+
+volumes:
+  teacher-data:
