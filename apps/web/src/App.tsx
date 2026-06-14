@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 
 import {
   addStudentToTeacher,
@@ -49,15 +49,15 @@ import {
 const baselineItems = [
   {
     title: '人教版教材单元词库',
-    description: '按教材版本、册别、单元、课次组织初高中俄语词汇。',
+    description: '初中、高中俄语词汇按册别和单元拆分。',
   },
   {
     title: 'SRS 复习',
-    description: '先完成主动回忆，再按作答质量安排下一次复习。',
+    description: '根据作答结果安排下次复习。',
   },
   {
-    title: '有效背词排行榜',
-    description: '只统计服务端确认后的有效掌握、到期复习和错词消灭。',
+    title: '背词排行榜',
+    description: '按掌握、复习、打卡记录计算积分。',
   },
 ]
 
@@ -66,6 +66,11 @@ export function App() {
   const featuredUnits = featuredBook ? groupRussianWordsByUnit(featuredBook.slug) : []
   const featuredUnit = featuredUnits[0]
   const [guestUser, setGuestUser] = useState<GuestUser | null>(null)
+  const [phoneLearner, setPhoneLearner] = useState<LearnerAccount | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState('13800000000')
+  const [phoneCodeInput, setPhoneCodeInput] = useState('')
+  const [phoneVerificationCode, setPhoneVerificationCode] = useState<string | null>(null)
+  const [phoneLoginMessage, setPhoneLoginMessage] = useState<string | null>(null)
   const [activePlan, setActivePlan] = useState<StudyPlan | null>(null)
   const [studySession, setStudySession] = useState<StudySession | null>(null)
   const [studyResult, setStudyResult] = useState<StudySessionResult | null>(null)
@@ -91,9 +96,54 @@ export function App() {
   const [offlineQueue, setOfflineQueue] = useState<OfflineSyncOperation[]>([])
   const [offlineSyncMessage, setOfflineSyncMessage] = useState<string | null>(null)
   const [offlineServerConfirmed, setOfflineServerConfirmed] = useState(false)
+  const activeLearner = phoneLearner ?? guestUser
 
   function startGuestLearning() {
+    setPhoneLearner(null)
+    setPhoneLoginMessage(null)
     setGuestUser(createGuestLearner({ now: new Date().toISOString() }))
+  }
+
+  function updatePhoneNumber(event: ChangeEvent<HTMLInputElement>) {
+    setPhoneNumber(event.target.value)
+  }
+
+  function updatePhoneCodeInput(event: ChangeEvent<HTMLInputElement>) {
+    setPhoneCodeInput(event.target.value)
+  }
+
+  function requestPhoneCode() {
+    const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '')
+
+    if (normalizedPhoneNumber.length !== 11) {
+      setPhoneLoginMessage('请输入 11 位手机号。')
+      setPhoneVerificationCode(null)
+      return
+    }
+
+    setPhoneNumber(normalizedPhoneNumber)
+    setPhoneVerificationCode('246810')
+    setPhoneLoginMessage('开发验证码：246810')
+  }
+
+  function verifyPhoneCode() {
+    if (!phoneVerificationCode) {
+      setPhoneLoginMessage('请先获取验证码。')
+      return
+    }
+
+    if (phoneCodeInput.trim() !== phoneVerificationCode) {
+      setPhoneLoginMessage('验证码不正确。')
+      return
+    }
+
+    const learner = createRegisteredLearner({ now: new Date().toISOString() })
+
+    setPhoneLearner(learner)
+    setGuestUser(null)
+    setPhoneLoginMessage(`已登录：${learner.displayName}`)
+    setPhoneVerificationCode(null)
+    setPhoneCodeInput('')
   }
 
   function generateStudyPlan() {
@@ -102,7 +152,7 @@ export function App() {
     }
 
     const now = new Date().toISOString()
-    const user = guestUser ?? createGuestLearner({ now })
+    const user = activeLearner ?? createGuestLearner({ now })
     const result = createStudyPlanFromOnboarding({
       userId: user.id,
       preferences: {
@@ -117,7 +167,10 @@ export function App() {
       now,
     })
 
-    setGuestUser(user)
+    if (!activeLearner) {
+      setGuestUser(user as GuestUser)
+    }
+
     setActivePlan(result.studyPlan)
     setStudySession(null)
     setStudyResult(null)
@@ -142,7 +195,7 @@ export function App() {
   }
 
   function completeFirstStudySession() {
-    if (!activePlan || !guestUser) {
+    if (!activePlan || !activeLearner) {
       return
     }
 
@@ -151,7 +204,7 @@ export function App() {
     const result = completeStudySession({
       session,
       request: {
-        userId: guestUser.id,
+        userId: activeLearner.id,
         reviews: session.wordCards.map((card, index) => ({
           wordId: card.wordId,
           answerQuality: index === 0 ? 'good' : 'again',
@@ -167,7 +220,7 @@ export function App() {
       buildScoreEventsForStudyResult({
         session,
         result,
-        idempotencyKey: `complete-${guestUser.id}`,
+        idempotencyKey: `complete-${activeLearner.id}`,
       }),
     )
     setLatestCheckin(null)
@@ -182,7 +235,7 @@ export function App() {
   }
 
   function cacheOfflineLearningPack() {
-    if (!activePlan || !guestUser) {
+    if (!activePlan || !activeLearner) {
       return
     }
 
@@ -206,20 +259,20 @@ export function App() {
   }
 
   function queueOfflineAnswer() {
-    if (!guestUser || !offlineLearningPack) {
+    if (!activeLearner || !offlineLearningPack) {
       return
     }
 
     const now = new Date().toISOString()
     const operation = createOfflineSyncOperation({
       type: 'study_session_complete',
-      userId: guestUser.id,
+      userId: activeLearner.id,
       endpoint: `/api/v1/study-sessions/${offlineLearningPack.sessionId}/complete`,
-      idempotencyKey: `complete-offline-${guestUser.id}-${offlineLearningPack.sessionId}`,
+      idempotencyKey: `complete-offline-${activeLearner.id}-${offlineLearningPack.sessionId}`,
       payload: {
         sessionId: offlineLearningPack.sessionId,
         request: {
-          userId: guestUser.id,
+          userId: activeLearner.id,
           reviews: offlineLearningPack.wordCards.map((card) => ({
             wordId: card.wordId,
             answerQuality: 'good',
@@ -289,7 +342,7 @@ export function App() {
   }
 
   function completeDailyCheckin() {
-    if (!featuredBook || !guestUser || !activePlan || !studyResult || !studySession) {
+    if (!featuredBook || !activeLearner || !activePlan || !studyResult || !studySession) {
       return
     }
 
@@ -300,10 +353,10 @@ export function App() {
         : buildScoreEventsForStudyResult({
             session: studySession,
             result: studyResult,
-            idempotencyKey: `complete-${guestUser.id}`,
+            idempotencyKey: `complete-${activeLearner.id}`,
           })
     const checkin = createCheckinRecord({
-      userId: guestUser.id,
+      userId: activeLearner.id,
       checkinDate: now.slice(0, 10),
       existingCheckins: checkins,
       now,
@@ -316,7 +369,7 @@ export function App() {
       checkin,
     ]
     const dashboard = buildDashboardSummary({
-      userId: guestUser.id,
+      userId: activeLearner.id,
       plan: activePlan,
       results: [studyResult],
       progressList: reviewProgress ? [reviewProgress] : [],
@@ -324,7 +377,7 @@ export function App() {
       checkins: nextCheckins,
       now,
     })
-    const leaderboardLearners = [guestUser]
+    const leaderboardLearners = [activeLearner]
 
     setScoreEvents(currentScoreEvents)
     setCheckins(nextCheckins)
@@ -397,7 +450,7 @@ export function App() {
       now,
     })
 
-    const learners = guestUser ? [registeredLearner, guestUser] : [registeredLearner]
+    const learners = activeLearner ? [registeredLearner, activeLearner] : [registeredLearner]
     const plans = activePlan ? [registeredPlan, activePlan] : [registeredPlan]
     const results = studyResult ? [registeredResult, studyResult] : [registeredResult]
     const progressSummaries = buildTeacherProgressSummaries({ learners, plans, results })
@@ -472,7 +525,7 @@ export function App() {
         task: teacherTask,
         studentId: student.id,
         rating: 'great',
-        comment: '词义掌握稳定，继续保持。',
+        comment: '词义掌握正确。',
         now,
       }),
     )
@@ -495,7 +548,7 @@ export function App() {
 
   function simulateMistakeReview() {
     const initial = createInitialWordProgress({
-      userId: guestUser?.id ?? 'guest_preview',
+      userId: activeLearner?.id ?? 'guest_preview',
       wordId: 'word_klass',
       now: '2026-06-14T00:00:00.000Z',
     })
@@ -540,6 +593,11 @@ export function App() {
 
   function clearLocalLearningData() {
     setGuestUser(null)
+    setPhoneLearner(null)
+    setPhoneNumber('13800000000')
+    setPhoneCodeInput('')
+    setPhoneVerificationCode(null)
+    setPhoneLoginMessage(null)
     setActivePlan(null)
     setStudySession(null)
     setStudyResult(null)
@@ -568,18 +626,25 @@ export function App() {
   }
 
   const pendingOfflineCount = getQueuedOfflineSyncOperations(offlineQueue).length
+  const vocabularyCatalog = pepRussianVocabularyBooks
+  const importedVocabularyBookCount = vocabularyCatalog.filter((book) => book.wordCount > 0).length
+  const importedVocabularyWordCount = vocabularyCatalog.reduce(
+    (total, book) => total + book.wordCount,
+    0,
+  )
+  const pendingVocabularyBookCount = vocabularyCatalog.length - importedVocabularyBookCount
 
   return (
     <main className="app-shell">
       <section className="hero" aria-labelledby="app-title">
-        <p className="eyebrow">Russian Wordscodex MVP</p>
+        <p className="eyebrow">人教版俄语</p>
         <h1 id="app-title">俄语百词斩</h1>
         <p className="hero-copy">
-          面向初中、高中俄语学习者，围绕人教版教材单元建立背词、复习、错词和榜单闭环。
+          初中和高中俄语词汇按册别、单元整理，包含背词、复习、错词、排行榜和老师任务。
         </p>
       </section>
 
-      <section className="baseline-grid" aria-label="工程基线能力">
+      <section className="baseline-grid" aria-label="核心学习能力">
         {baselineItems.map((item) => (
           <article className="baseline-card" key={item.title}>
             <h2>{item.title}</h2>
@@ -588,16 +653,60 @@ export function App() {
         ))}
       </section>
 
+      <section className="login-section" aria-labelledby="login-title">
+        <div className="section-heading">
+          <p className="eyebrow">登录</p>
+          <h2 id="login-title">手机验证码</h2>
+        </div>
+
+        <article className="login-panel">
+          <div className="login-fields" aria-label="手机验证码登录">
+            <input
+              className="text-input"
+              aria-label="手机号"
+              inputMode="numeric"
+              maxLength={11}
+              value={phoneNumber}
+              onChange={updatePhoneNumber}
+            />
+            <input
+              className="text-input"
+              aria-label="验证码"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="验证码"
+              value={phoneCodeInput}
+              onChange={updatePhoneCodeInput}
+            />
+          </div>
+
+          <div className="login-actions" aria-label="登录操作">
+            <button className="secondary-action" type="button" onClick={requestPhoneCode}>
+              获取验证码
+            </button>
+            <button className="primary-action" type="button" onClick={verifyPhoneCode}>
+              登录
+            </button>
+          </div>
+
+          {phoneLoginMessage ? (
+            <p className="login-message" aria-live="polite">
+              {phoneLoginMessage}
+            </p>
+          ) : null}
+        </article>
+      </section>
+
       <section className="onboarding-section" aria-labelledby="onboarding-title">
         <div className="section-heading">
-          <p className="eyebrow">Guest Onboarding</p>
-          <h2 id="onboarding-title">新手引导</h2>
+          <p className="eyebrow">学习入口</p>
+          <h2 id="onboarding-title">学习计划</h2>
         </div>
 
         <article className="onboarding-panel">
           <div className="onboarding-copy">
-            <h3>人教版俄语学习入口</h3>
-            <p>默认从初中俄语七年级上册第 1 单元开始，按每日新词目标生成首个学习计划。</p>
+            <h3>七年级上册第 1 单元</h3>
+            <p>按每日新词目标生成学习计划。</p>
           </div>
 
           <div className="onboarding-actions" aria-label="新手引导操作">
@@ -614,7 +723,9 @@ export function App() {
             </button>
           </div>
 
-          {guestUser ? <p className="guest-status">当前身份：{guestUser.displayName}</p> : null}
+          {activeLearner ? (
+            <p className="guest-status">当前身份：{activeLearner.displayName}</p>
+          ) : null}
 
           {activePlan && featuredBook ? (
             <div className="plan-summary" aria-live="polite">
@@ -631,7 +742,7 @@ export function App() {
               className="primary-action"
               type="button"
               onClick={completeFirstStudySession}
-              disabled={!activePlan || !guestUser}
+              disabled={!activePlan || !activeLearner}
             >
               完成首组背诵
             </button>
@@ -662,8 +773,8 @@ export function App() {
 
       <section className="offline-section" aria-labelledby="offline-title">
         <div className="section-heading">
-          <p className="eyebrow">PWA Offline Sync</p>
-          <h2 id="offline-title">离线学习与同步</h2>
+          <p className="eyebrow">离线模式</p>
+          <h2 id="offline-title">离线学习</h2>
         </div>
 
         <article className="offline-panel">
@@ -672,7 +783,7 @@ export function App() {
               className="secondary-action"
               type="button"
               onClick={cacheOfflineLearningPack}
-              disabled={!activePlan || !guestUser}
+              disabled={!activePlan || !activeLearner}
             >
               缓存离线学习包
             </button>
@@ -682,7 +793,7 @@ export function App() {
               onClick={queueOfflineAnswer}
               disabled={!offlineLearningPack}
             >
-              模拟断网作答
+              断网作答
             </button>
             <button
               className="secondary-action"
@@ -710,7 +821,7 @@ export function App() {
 
           {offlineServerConfirmed ? (
             <p className="offline-confirmation" aria-live="polite">
-              服务端已确认，可继续打卡和更新榜单。
+              同步已确认。
             </p>
           ) : null}
         </article>
@@ -719,7 +830,7 @@ export function App() {
       {latestCheckin && dashboardSummary ? (
         <section className="dashboard-section" aria-labelledby="dashboard-title">
           <div className="section-heading">
-            <p className="eyebrow">Check-in & Leaderboard</p>
+            <p className="eyebrow">今日看板</p>
             <h2 id="dashboard-title">学习看板</h2>
           </div>
 
@@ -769,7 +880,7 @@ export function App() {
       {dailyLeaderboard.length > 0 ? (
         <section className="leaderboard-section" aria-labelledby="leaderboard-title">
           <div className="section-heading">
-            <p className="eyebrow">Effective Score</p>
+            <p className="eyebrow">积分</p>
             <h2 id="leaderboard-title">排行榜</h2>
           </div>
 
@@ -784,7 +895,7 @@ export function App() {
       {teacherUser ? (
         <section className="teacher-section" aria-labelledby="teacher-title">
           <div className="section-heading">
-            <p className="eyebrow">Teacher Dashboard</p>
+            <p className="eyebrow">老师端</p>
             <h2 id="teacher-title">老师进度看板</h2>
           </div>
 
@@ -871,14 +982,14 @@ export function App() {
 
       <section className="review-section" aria-labelledby="review-title">
         <div className="section-heading">
-          <p className="eyebrow">SRS Review</p>
+          <p className="eyebrow">错词复习</p>
           <h2 id="review-title">复习与错词</h2>
         </div>
 
         <article className="review-panel">
           <div className="review-actions" aria-label="复习与错词操作">
             <button className="secondary-action" type="button" onClick={simulateMistakeReview}>
-              模拟错词复习
+              错词复习
             </button>
             <button
               className="primary-action"
@@ -912,40 +1023,57 @@ export function App() {
         </article>
       </section>
 
-      {featuredBook ? (
+      {vocabularyCatalog.length > 0 ? (
         <section className="vocabulary-section" aria-labelledby="vocabulary-title">
           <div className="section-heading">
-            <p className="eyebrow">PEP Russian Vocabulary</p>
+            <p className="eyebrow">教材词库</p>
             <h2 id="vocabulary-title">人教版俄语词库</h2>
           </div>
 
           <article className="book-panel">
             <div>
-              <h3>{featuredBook.name}</h3>
+              <h3>词库覆盖</h3>
               <p>
-                {featuredBook.textbookVersion} · {featuredBook.volume} · {featuredBook.wordCount}{' '}
-                个词
+                {vocabularyCatalog.length} 册 · 已导入 {importedVocabularyWordCount} 个词 ·{' '}
+                {pendingVocabularyBookCount} 册待导入
               </p>
             </div>
 
-            <div className="unit-list" aria-label={`${featuredBook.name} 单元`}>
-              {featuredUnits.map((unit) => (
-                <div className="unit-row" key={unit.unit}>
+            <div className="book-list" aria-label="人教版俄语册别">
+              {vocabularyCatalog.map((book) => (
+                <div className="book-row" key={book.slug}>
                   <div>
-                    <strong>{unit.unitTitle}</strong>
-                    <span>第 {unit.unit} 单元</span>
+                    <strong>{book.name}</strong>
+                    <span>
+                      {book.educationStage === 'junior' ? '初中' : '高中'} · {book.volume} ·{' '}
+                      {book.source}
+                    </span>
                   </div>
-                  <span>{unit.wordCount} 个词</span>
+                  <span>{book.wordCount > 0 ? `${book.wordCount} 个词` : '待导入'}</span>
                 </div>
               ))}
             </div>
+
+            {featuredBook ? (
+              <div className="unit-list" aria-label={`${featuredBook.name} 单元`}>
+                {featuredUnits.map((unit) => (
+                  <div className="unit-row" key={unit.unit}>
+                    <div>
+                      <strong>{unit.unitTitle}</strong>
+                      <span>第 {unit.unit} 单元</span>
+                    </div>
+                    <span>{unit.wordCount} 个词</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </article>
         </section>
       ) : null}
 
       <section className="privacy-section" aria-labelledby="privacy-title">
         <div className="section-heading">
-          <p className="eyebrow">Privacy & Account</p>
+          <p className="eyebrow">账号与隐私</p>
           <h2 id="privacy-title">隐私与账号</h2>
         </div>
 

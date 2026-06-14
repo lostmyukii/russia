@@ -19,6 +19,6 @@ describe('teacher task workflow', () => {
     expect(screen.getByText('七年级上册第 1 单元背词任务')).toBeInTheDocument()
     expect(screen.getAllByText('登录学习者')).toHaveLength(2)
     expect(screen.getAllByText('访客学习者')).toHaveLength(2)
-    expect(screen.getAllByText('评价：词义掌握稳定，继续保持。')).toHaveLength(2)
+    expect(screen.getAllByText('评价：词义掌握正确。')).toHaveLength(2)
   })
 })

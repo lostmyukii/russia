@@ -7,7 +7,7 @@ describe('review and mistakes flow', () => {
   it('shows a mistake entry and removes it after elimination practice', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: '模拟错词复习' }))
+    fireEvent.click(screen.getByRole('button', { name: '错词复习' }))
 
     expect(screen.getByText('错词本')).toBeInTheDocument()
     expect(screen.getByText('класс')).toBeInTheDocument()

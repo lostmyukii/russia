@@ -24,6 +24,22 @@ describe('PEP Russian vocabulary domain', () => {
         }),
       ]),
     )
+    expect(pepRussianVocabularyBooks.map((book) => book.slug)).toEqual([
+      'pep-ru-junior-g7-a',
+      'pep-ru-junior-g7-b',
+      'pep-ru-junior-g8-a',
+      'pep-ru-junior-g8-b',
+      'pep-ru-junior-g9-a',
+      'pep-ru-junior-g9-b',
+      'pep-ru-senior-compulsory-1',
+      'pep-ru-senior-compulsory-2',
+      'pep-ru-senior-compulsory-3',
+      'pep-ru-senior-selective-1',
+      'pep-ru-senior-selective-2',
+      'pep-ru-senior-selective-3',
+      'pep-ru-senior-selective-4',
+      'pep-ru-gaokao-core',
+    ])
   })
 
   it('groups Russian words by PEP textbook unit without mixing lessons', () => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import type { VocabularyBook } from '@russian-wordscodex/domain'
+
 import { buildApp } from '../src/app'
 
 describe('vocabulary API', () => {
@@ -12,16 +14,27 @@ describe('vocabulary API', () => {
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({
-      books: [
+    const body: { books: VocabularyBook[] } = response.json()
+
+    expect(body.books).toHaveLength(6)
+    expect(body.books).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           slug: 'pep-ru-junior-g7-a',
           name: '人教版初中俄语七年级上册',
           publisher: 'pep',
           educationStage: 'junior',
+          wordCount: 2,
         }),
-      ],
-    })
+        expect.objectContaining({
+          slug: 'pep-ru-junior-g9-b',
+          name: '人教版初中俄语九年级下册',
+          publisher: 'pep',
+          educationStage: 'junior',
+          wordCount: 0,
+        }),
+      ]),
+    )
   })
 
   it('returns unit summaries for a PEP textbook book', async () => {
