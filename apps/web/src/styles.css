@@ -832,6 +832,38 @@ h3 {
   gap: 10px;
 }
 
+.login-role-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: rgba(242, 242, 247, 0.82);
+}
+
+.login-role-button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--secondary);
+  background: transparent;
+  font: inherit;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.login-role-button.is-active {
+  color: var(--text);
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.08);
+}
+
+.login-role-button:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.24);
+  outline-offset: 2px;
+}
+
 .text-input {
   width: 100%;
   min-height: 44px;
@@ -1030,6 +1062,59 @@ h3 {
 
 .teacher-actions {
   padding-bottom: 2px;
+}
+
+.teacher-dashboard-overview {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(60, 60, 67, 0.1);
+  border-radius: 20px;
+  background: rgba(248, 249, 252, 0.76);
+}
+
+.teacher-dashboard-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.teacher-dashboard-heading h2 {
+  font-size: 1.18rem;
+}
+
+.teacher-dashboard-heading span,
+.teacher-overview-note {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.teacher-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.teacher-metric-grid div {
+  display: grid;
+  gap: 4px;
+  min-height: 78px;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid var(--separator);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.teacher-metric-grid span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 720;
+}
+
+.teacher-metric-grid strong {
+  color: var(--text);
+  font-size: 1.7rem;
+  line-height: 1;
 }
 
 .progress-list,
@@ -1362,6 +1447,10 @@ h3 {
 
   .question-mode-selector {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .study-card-body strong {

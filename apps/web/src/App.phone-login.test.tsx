@@ -20,4 +20,20 @@ describe('teacher assigned account login', () => {
     expect(screen.getByRole('heading', { name: '生成你的学习计划' })).toBeInTheDocument()
     expect(screen.getByText('人教版初中俄语七年级全一册')).toBeInTheDocument()
   })
+
+  it('lets a teacher sign in with a teacher account and open the dashboard', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: '开始学习' }))
+    fireEvent.click(screen.getByRole('button', { name: '老师登录' }))
+    fireEvent.change(screen.getByLabelText('账号'), { target: { value: 'teacher01' } })
+    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'teacher123456' } })
+    fireEvent.click(screen.getByRole('button', { name: '登录并继续' }))
+
+    expect(screen.getByRole('heading', { name: '老师端看板' })).toBeInTheDocument()
+    expect(screen.getByText('老师账号：俄语老师')).toBeInTheDocument()
+    expect(screen.getByText('班级概览')).toBeInTheDocument()
+    expect(screen.getByText('学生人数')).toBeInTheDocument()
+    expect(screen.getByText('平均完成率')).toBeInTheDocument()
+  })
 })

@@ -78,7 +78,23 @@ const teacherAssignedLearnerAccounts = [
   },
 ] as const
 
+const teacherAssignedTeacherAccounts = [
+  {
+    username: 'teacher01',
+    password: 'teacher123456',
+    displayName: '俄语老师',
+  },
+] as const
+
+type LoginRole = 'student' | 'teacher'
 type StudyQuestionMode = 'choice' | 'ru_to_zh_dictation' | 'zh_to_ru_dictation'
+type TeacherDashboardMetrics = {
+  studentCount: number
+  activeTaskCount: number
+  masteredWordCount: number
+  averageCompletionRate: number
+  pendingEvaluationCount: number
+}
 
 export function App() {
   const vocabularyCatalog = pepRussianVocabularyBooks
@@ -110,6 +126,7 @@ export function App() {
     )
   const [guestUser, setGuestUser] = useState<GuestUser | null>(null)
   const [assignedLearner, setAssignedLearner] = useState<LearnerAccount | null>(null)
+  const [loginRole, setLoginRole] = useState<LoginRole>('student')
   const [loginUsername, setLoginUsername] = useState('student01')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginMessage, setLoginMessage] = useState<string | null>(null)
@@ -219,6 +236,13 @@ export function App() {
     setLoginPassword(event.target.value)
   }
 
+  function selectLoginRole(role: LoginRole) {
+    setLoginRole(role)
+    setLoginMessage(null)
+    setLoginPassword('')
+    setLoginUsername(role === 'teacher' ? 'teacher01' : 'student01')
+  }
+
   function updateBookSearch(event: ChangeEvent<HTMLInputElement>) {
     setBookSearch(event.target.value)
   }
@@ -258,6 +282,31 @@ export function App() {
 
   function verifyTeacherAssignedLogin() {
     const normalizedUsername = loginUsername.trim()
+
+    if (loginRole === 'teacher') {
+      const teacherAccount = teacherAssignedTeacherAccounts.find(
+        (candidate) =>
+          candidate.username === normalizedUsername && candidate.password === loginPassword,
+      )
+
+      if (!teacherAccount) {
+        setLoginMessage('老师账号或密码不正确。')
+        return
+      }
+
+      const now = new Date().toISOString()
+      const teacher = createTeacherAccount({ now })
+
+      setAssignedLearner(null)
+      setGuestUser(null)
+      setLoginMessage(`已登录：${teacherAccount.displayName}`)
+      setLoginUsername(teacherAccount.username)
+      setLoginPassword('')
+      seedTeacherDashboard({ teacher, now })
+      navigateTo('/teacher')
+      return
+    }
+
     const account = teacherAssignedLearnerAccounts.find(
       (candidate) =>
         candidate.username === normalizedUsername && candidate.password === loginPassword,
@@ -658,6 +707,15 @@ export function App() {
 
     const now = new Date().toISOString()
     const teacher = createTeacherAccount({ now })
+
+    seedTeacherDashboard({ teacher, now })
+  }
+
+  function seedTeacherDashboard({ teacher, now }: { teacher: TeacherUser; now: string }) {
+    if (!featuredBook || !featuredUnit) {
+      return
+    }
+
     const registeredLearner = createRegisteredLearner({ now })
     const registeredPlan = createStudyPlanFromOnboarding({
       userId: registeredLearner.id,
@@ -889,6 +947,12 @@ export function App() {
   const currentStudyCard = studyCards[currentStudyCardIndex]
   const currentStudyCardNumber = currentStudyCard ? currentStudyCardIndex + 1 : 0
   const currentRecallOptions = currentStudyCard ? buildRecallOptions(currentStudyCard) : []
+  const teacherDashboardMetrics = buildTeacherDashboardMetrics({
+    progressSummaries: teacherProgress,
+    students: teacherStudents,
+    task: teacherTask,
+    taskOverview: teacherTaskOverview,
+  })
 
   function answerRecallOption(option: string) {
     if (!currentStudyCard) {
@@ -926,13 +990,40 @@ export function App() {
         <section className="auth-card" aria-labelledby="login-title">
           <p className="eyebrow">登录后继续学习</p>
           <h1 id="login-title">账号密码登录</h1>
-          <p className="auth-copy">使用老师分配的学生账号和初始密码登录。</p>
+          <p className="auth-copy">
+            {loginRole === 'teacher'
+              ? '老师使用教师账号进入班级看板。'
+              : '学生使用老师分配的账号和初始密码登录。'}
+          </p>
 
           {loginMessage ? (
             <p className="login-message" aria-live="polite">
               {loginMessage}
             </p>
           ) : null}
+
+          <div className="login-role-switch" aria-label="登录身份">
+            <button
+              className={
+                loginRole === 'student' ? 'login-role-button is-active' : 'login-role-button'
+              }
+              type="button"
+              aria-pressed={loginRole === 'student'}
+              onClick={() => selectLoginRole('student')}
+            >
+              学生登录
+            </button>
+            <button
+              className={
+                loginRole === 'teacher' ? 'login-role-button is-active' : 'login-role-button'
+              }
+              type="button"
+              aria-pressed={loginRole === 'teacher'}
+              onClick={() => selectLoginRole('teacher')}
+            >
+              老师登录
+            </button>
+          </div>
 
           <div className="auth-form" aria-label="老师分配账号登录">
             <div className="form-field">
@@ -943,7 +1034,11 @@ export function App() {
                 value={loginUsername}
                 onChange={updateLoginUsername}
               />
-              <p className="field-hint">示例账号：student01 / ru123456</p>
+              <p className="field-hint">
+                {loginRole === 'teacher'
+                  ? '老师示例：teacher01 / teacher123456'
+                  : '示例账号：student01 / ru123456'}
+              </p>
             </div>
 
             <div className="form-field">
@@ -1669,17 +1764,18 @@ export function App() {
       <main className="home-shell">
         <section className="teacher-panel route-teacher-panel" aria-labelledby="teacher-title">
           <p className="eyebrow">老师端</p>
-          <h1 id="teacher-title">老师进度看板</h1>
+          <h1 id="teacher-title">老师端看板</h1>
           {!teacherUser ? (
             <>
-              <p className="hero-copy">创建老师账号后，可以查看登录者和游客的背诵进度。</p>
+              <p className="hero-copy">登录老师账号后，可以查看学生进度、布置任务和发布评价。</p>
               <button className="primary-action" type="button" onClick={showTeacherProgress}>
-                创建老师账号
+                创建演示老师账号
               </button>
             </>
           ) : (
             <>
               <p className="teacher-account">老师账号：{teacherUser.displayName}</p>
+              <TeacherDashboardOverview metrics={teacherDashboardMetrics} />
               <div className="teacher-actions" aria-label="老师任务操作">
                 <button className="secondary-action" type="button" onClick={addStudentsToClass}>
                   添加学生
@@ -2125,6 +2221,7 @@ export function App() {
 
           <article className="teacher-panel">
             <p className="teacher-account">老师账号：{teacherUser.displayName}</p>
+            <TeacherDashboardOverview metrics={teacherDashboardMetrics} />
             <div className="teacher-actions" aria-label="老师任务操作">
               <button className="secondary-action" type="button" onClick={addStudentsToClass}>
                 添加学生
@@ -2352,6 +2449,40 @@ function TeacherStudentCredentialsList({ students }: { students: TeacherStudent[
   )
 }
 
+function TeacherDashboardOverview({ metrics }: { metrics: TeacherDashboardMetrics }) {
+  return (
+    <section className="teacher-dashboard-overview" aria-label="班级概览">
+      <div className="teacher-dashboard-heading">
+        <h2>班级概览</h2>
+        <span>学生进度、任务和评价集中查看。</span>
+      </div>
+      <div className="teacher-metric-grid">
+        <div>
+          <span>学生人数</span>
+          <strong>{metrics.studentCount}</strong>
+        </div>
+        <div>
+          <span>已掌握</span>
+          <strong>{metrics.masteredWordCount}</strong>
+        </div>
+        <div>
+          <span>平均完成率</span>
+          <strong>{metrics.averageCompletionRate}%</strong>
+        </div>
+        <div>
+          <span>待评价</span>
+          <strong>{metrics.pendingEvaluationCount}</strong>
+        </div>
+      </div>
+      {metrics.activeTaskCount > 0 ? (
+        <p className="teacher-overview-note">当前有 {metrics.activeTaskCount} 个进行中任务。</p>
+      ) : (
+        <p className="teacher-overview-note">添加学生后即可布置背词任务。</p>
+      )}
+    </section>
+  )
+}
+
 function StudyQuestionModeSelector({
   selectedMode,
   onSelect,
@@ -2476,6 +2607,51 @@ function clampDailyNewWordTarget(value: string, max: number): number {
   }
 
   return Math.min(Math.max(parsedValue, 1), max)
+}
+
+function buildTeacherDashboardMetrics({
+  progressSummaries,
+  students,
+  task,
+  taskOverview,
+}: {
+  progressSummaries: LearnerProgressSummary[]
+  students: TeacherStudent[]
+  task: TeacherTask | null
+  taskOverview: TeacherTaskOverview | null
+}): TeacherDashboardMetrics {
+  const studentCount = students.length > 0 ? students.length : progressSummaries.length
+  const masteredWordCount = progressSummaries.reduce(
+    (total, progress) => total + progress.masteredWordCount,
+    0,
+  )
+  const averageCompletionRate =
+    progressSummaries.length === 0
+      ? 0
+      : Math.round(
+          (progressSummaries.reduce((total, progress) => {
+            if (progress.plannedWordCount === 0) {
+              return total
+            }
+
+            return total + progress.recitedWordCount / progress.plannedWordCount
+          }, 0) *
+            100) /
+            progressSummaries.length,
+        )
+  const pendingEvaluationCount = taskOverview
+    ? taskOverview.students.filter((student) => !student.evaluationRating).length
+    : task
+      ? studentCount
+      : 0
+
+  return {
+    studentCount,
+    activeTaskCount: task ? 1 : 0,
+    masteredWordCount,
+    averageCompletionRate,
+    pendingEvaluationCount,
+  }
 }
 
 function buildRecallOptions(currentCard: StudyWordCard): string[] {
