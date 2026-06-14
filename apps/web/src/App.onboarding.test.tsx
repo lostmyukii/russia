@@ -30,6 +30,18 @@ describe('onboarding flow', () => {
     expect(screen.getByText(/人教版高中俄语选择性必修第四册/)).toBeInTheDocument()
   })
 
+  it('uses the learner selected daily new word target in the generated plan', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.change(screen.getByLabelText('每日新词量'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+
+    expect(screen.getByRole('heading', { name: '今日任务' })).toBeInTheDocument()
+    expect(screen.getByText(/每日新词\s+5 个/)).toBeInTheDocument()
+    expect(screen.getByText('5 个')).toBeInTheDocument()
+  })
+
   it('starts a real recitation card flow after generating a plan', () => {
     render(<App />)
 

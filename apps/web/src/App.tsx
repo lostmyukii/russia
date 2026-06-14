@@ -68,6 +68,7 @@ export function App() {
   const [routePath, setRoutePath] = useState(getInitialRoutePath)
   const [selectedBookSlug, setSelectedBookSlug] = useState<string | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null)
+  const [dailyNewWordTargetInput, setDailyNewWordTargetInput] = useState('1')
   const [bookSearch, setBookSearch] = useState('')
   const featuredBook =
     vocabularyCatalog.find((book) => book.slug === selectedBookSlug) ?? vocabularyCatalog[0]
@@ -75,6 +76,7 @@ export function App() {
   const defaultFeaturedUnit = featuredUnits.find((unit) => unit.unit !== '0') ?? featuredUnits[0]
   const featuredUnit =
     featuredUnits.find((unit) => unit.unit === selectedUnit) ?? defaultFeaturedUnit
+  const dailyNewWordLimit = Math.max(featuredUnit?.wordCount ?? 1, 1)
   const featuredBookShortName =
     featuredBook?.name.replace(/^人教版(初中|高中)俄语/, '') ?? '七年级全一册'
   const featuredMistakeWord =
@@ -209,6 +211,10 @@ export function App() {
     setSelectedUnit(event.target.value)
   }
 
+  function updateDailyNewWordTarget(event: ChangeEvent<HTMLInputElement>) {
+    setDailyNewWordTargetInput(event.target.value)
+  }
+
   function chooseVocabularyBook(bookSlug: string) {
     setSelectedBookSlug(bookSlug)
     setSelectedUnit(null)
@@ -257,6 +263,7 @@ export function App() {
 
     const now = new Date().toISOString()
     const user = activeLearner ?? createGuestLearner({ now })
+    const dailyNewWordTarget = clampDailyNewWordTarget(dailyNewWordTargetInput, dailyNewWordLimit)
     const result = createStudyPlanFromOnboarding({
       userId: user.id,
       preferences: {
@@ -264,7 +271,7 @@ export function App() {
         grade: featuredBook.grade,
         bookId: featuredBook.id,
         unit: featuredUnit.unit,
-        dailyNewWordTarget: 1,
+        dailyNewWordTarget,
         reminderEnabled: true,
       },
       targetDate: null,
@@ -288,6 +295,7 @@ export function App() {
     setDailyLeaderboard([])
     setWeeklyLeaderboard([])
     setBookLeaderboard([])
+    setDailyNewWordTargetInput(String(dailyNewWordTarget))
     setTeacherProgress([])
     setClassLearners([])
     setClassPlans([])
@@ -763,6 +771,7 @@ export function App() {
     setActivePlan(null)
     setSelectedBookSlug(null)
     setSelectedUnit(null)
+    setDailyNewWordTargetInput('1')
     setStudySession(null)
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
@@ -969,8 +978,18 @@ export function App() {
 
                 <div className="form-field">
                   <label htmlFor="daily-target">每日新词量</label>
-                  <input id="daily-target" readOnly value="1" />
-                  <p className="field-hint">当前演示按每日 1 个新词生成，便于快速完成首组背诵。</p>
+                  <input
+                    id="daily-target"
+                    inputMode="numeric"
+                    min="1"
+                    max={dailyNewWordLimit}
+                    onChange={updateDailyNewWordTarget}
+                    type="number"
+                    value={dailyNewWordTargetInput}
+                  />
+                  <p className="field-hint">
+                    可设置 1-{dailyNewWordLimit} 个，生成后会同步到今日任务。
+                  </p>
                 </div>
                 <button
                   className="primary-action"
@@ -2167,6 +2186,16 @@ function formatDateAfterDays(isoTimestamp: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days)
 
   return date.toISOString().slice(0, 10)
+}
+
+function clampDailyNewWordTarget(value: string, max: number): number {
+  const parsedValue = Number.parseInt(value, 10)
+
+  if (!Number.isFinite(parsedValue)) {
+    return 1
+  }
+
+  return Math.min(Math.max(parsedValue, 1), max)
 }
 
 function getInitialRoutePath(): string {
