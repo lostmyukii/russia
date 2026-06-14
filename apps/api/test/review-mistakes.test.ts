@@ -27,7 +27,7 @@ describe('review and mistakes API', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 2,
           reminderEnabled: true,
@@ -46,6 +46,11 @@ describe('review and mistakes API', () => {
       (sessionPayload as { studySession: unknown }).studySession,
     )
     const sessionId = session.id
+    const firstWord = session.wordCards[0]
+    const secondWord = session.wordCards[1]
+
+    expect(firstWord).toBeDefined()
+    expect(secondWord).toBeDefined()
 
     const completeResponse = await app.inject({
       method: 'POST',
@@ -56,8 +61,13 @@ describe('review and mistakes API', () => {
       payload: {
         userId: guest.id,
         reviews: [
-          { wordId: 'word_shkola', answerQuality: 'good', responseMs: 5200 },
-          { wordId: 'word_klass', answerQuality: 'again', responseMs: 9000, errorType: 'meaning' },
+          { wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 5200 },
+          {
+            wordId: secondWord!.wordId,
+            answerQuality: 'again',
+            responseMs: 9000,
+            errorType: 'meaning',
+          },
         ],
       },
     })
@@ -74,8 +84,8 @@ describe('review and mistakes API', () => {
       (mistakePayload as { mistakes: unknown[] }).mistakes[0],
     )
     expect(mistake).toMatchObject({
-      wordId: 'word_klass',
-      lemma: 'класс',
+      wordId: secondWord!.wordId,
+      lemma: secondWord!.lemma,
       lastErrorType: 'meaning',
     })
 
@@ -89,7 +99,7 @@ describe('review and mistakes API', () => {
     expect(queueResponse.json()).toMatchObject({
       queue: [
         {
-          wordId: 'word_klass',
+          wordId: secondWord!.wordId,
           priority: 'mistake',
         },
       ],
@@ -103,14 +113,14 @@ describe('review and mistakes API', () => {
       },
       payload: {
         userId: guest.id,
-        wordId: 'word_klass',
+        wordId: secondWord!.wordId,
         responseMsList: [4300, 4100, 3900],
       },
     })
     expect(eliminationResponse.statusCode).toBe(200)
     expect(eliminationResponse.json()).toMatchObject({
       progress: {
-        wordId: 'word_klass',
+        wordId: secondWord!.wordId,
         masteryState: 'learning',
         consecutiveCorrect: 3,
         lastErrorType: null,

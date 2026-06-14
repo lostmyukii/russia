@@ -1,0 +1,91 @@
+{
+  "inputPath": "/Users/yukii/Desktop/俄语百词斩/Kimi_Agent_人教版俄语词汇CSV/人教版俄语词汇总表.csv",
+  "outputCsvPath": "/Users/yukii/Desktop/俄语百词斩/data/vocabulary/pep-russian-import.csv",
+  "outputAuditPath": "/Users/yukii/Desktop/俄语百词斩/data/vocabulary/pep-russian-import.audit.json",
+  "outputDomainPath": "/Users/yukii/Desktop/俄语百词斩/packages/domain/src/generated-vocabulary.ts",
+  "rawRows": 4037,
+  "normalizedRows": 3956,
+  "duplicateRowsMerged": 81,
+  "books": [
+    {
+      "sourceSlug": "russian_grade7",
+      "bookSlug": "pep-ru-junior-g7-full",
+      "name": "人教版初中俄语七年级全一册",
+      "unitCount": 10,
+      "wordCount": 461,
+      "sources": ["人教版七年级俄语全一册教材"]
+    },
+    {
+      "sourceSlug": "russian_grade8",
+      "bookSlug": "pep-ru-junior-g8-full",
+      "name": "人教版初中俄语八年级全一册",
+      "unitCount": 4,
+      "wordCount": 649,
+      "sources": ["遇见俄语微信公众号/教材整理"]
+    },
+    {
+      "sourceSlug": "russian_grade9",
+      "bookSlug": "pep-ru-junior-g9-full",
+      "name": "人教版初中俄语九年级全一册",
+      "unitCount": 13,
+      "wordCount": 384,
+      "sources": ["遇见俄语/课本"]
+    },
+    {
+      "sourceSlug": "russian_bixiu1",
+      "bookSlug": "pep-ru-senior-compulsory-1",
+      "name": "人教版高中俄语必修第一册",
+      "unitCount": 6,
+      "wordCount": 732,
+      "sources": ["遇见俄语微信公众号/网络收集"]
+    },
+    {
+      "sourceSlug": "russian_bixiu2",
+      "bookSlug": "pep-ru-senior-compulsory-2",
+      "name": "人教版高中俄语必修第二册",
+      "unitCount": 6,
+      "wordCount": 484,
+      "sources": ["遇见俄语微信公众号/网络收集"]
+    },
+    {
+      "sourceSlug": "russian_bixiu3",
+      "bookSlug": "pep-ru-senior-compulsory-3",
+      "name": "人教版高中俄语必修第三册",
+      "unitCount": 6,
+      "wordCount": 542,
+      "sources": ["遇见俄语微信公众号/网络收集"]
+    },
+    {
+      "sourceSlug": "russian_xuanxiu1",
+      "bookSlug": "pep-ru-senior-selective-1",
+      "name": "人教版高中俄语选择性必修第一册",
+      "unitCount": 3,
+      "wordCount": 204,
+      "sources": ["基于教材主题和课程标准整理"]
+    },
+    {
+      "sourceSlug": "russian_xuanxiu2",
+      "bookSlug": "pep-ru-senior-selective-2",
+      "name": "人教版高中俄语选择性必修第二册",
+      "unitCount": 1,
+      "wordCount": 41,
+      "sources": ["遇见俄语微信公众号"]
+    },
+    {
+      "sourceSlug": "russian_xuanxiu3",
+      "bookSlug": "pep-ru-senior-selective-3",
+      "name": "人教版高中俄语选择性必修第三册",
+      "unitCount": 4,
+      "wordCount": 182,
+      "sources": ["遇见俄语微信公众号", "人教版选择性必修第三册PDF词汇表"]
+    },
+    {
+      "sourceSlug": "russian_xuanxiu4",
+      "bookSlug": "pep-ru-senior-selective-4",
+      "name": "人教版高中俄语选择性必修第四册",
+      "unitCount": 3,
+      "wordCount": 277,
+      "sources": ["基于教材主题和课程标准整理"]
+    }
+  ]
+}

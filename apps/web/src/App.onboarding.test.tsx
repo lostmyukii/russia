@@ -11,7 +11,7 @@ describe('onboarding flow', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
 
     expect(screen.getByText('计划已生成')).toBeInTheDocument()
-    expect(screen.getByText('人教版初中俄语七年级上册 · 第 1 单元')).toBeInTheDocument()
+    expect(screen.getByText('人教版初中俄语七年级全一册 · 第 1 单元')).toBeInTheDocument()
     expect(screen.getByText('每日新词 1 个')).toBeInTheDocument()
   })
 })

@@ -10,7 +10,7 @@ describe('review and mistakes flow', () => {
     fireEvent.click(screen.getByRole('button', { name: '错词复习' }))
 
     expect(screen.getByText('错词本')).toBeInTheDocument()
-    expect(screen.getByText('класс')).toBeInTheDocument()
+    expect(screen.getByText('дом')).toBeInTheDocument()
     expect(screen.getByText('语义错误 · 10 分钟后复习')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '完成错词消灭' }))

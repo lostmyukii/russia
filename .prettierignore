@@ -1,3 +1,5 @@
 .dockerignore
+data/vocabulary/*.csv
 deployment/ios/*.Dockerfile
 deployment/ios/nginx.conf
+packages/domain/src/generated-vocabulary.ts

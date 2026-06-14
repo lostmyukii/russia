@@ -26,6 +26,7 @@ import {
   groupRussianWordsByUnit,
   markOfflineSyncOperationSynced,
   pepRussianVocabularyBooks,
+  pepRussianWords,
   type GuestUser,
   type CheckinRecord,
   type DashboardSummary,
@@ -64,7 +65,19 @@ const baselineItems = [
 export function App() {
   const featuredBook = pepRussianVocabularyBooks[0]
   const featuredUnits = featuredBook ? groupRussianWordsByUnit(featuredBook.slug) : []
-  const featuredUnit = featuredUnits[0]
+  const featuredUnit = featuredUnits.find((unit) => unit.unit !== '0') ?? featuredUnits[0]
+  const featuredBookShortName =
+    featuredBook?.name.replace(/^人教版(初中|高中)俄语/, '') ?? '七年级全一册'
+  const featuredMistakeWord =
+    pepRussianWords.find(
+      (word) =>
+        word.bookId === featuredBook?.id &&
+        word.unit === featuredUnit?.unit &&
+        word.partOfSpeech === 'noun',
+    ) ??
+    pepRussianWords.find(
+      (word) => word.bookId === featuredBook?.id && word.unit === featuredUnit?.unit,
+    )
   const [guestUser, setGuestUser] = useState<GuestUser | null>(null)
   const [phoneLearner, setPhoneLearner] = useState<LearnerAccount | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('13800000000')
@@ -441,7 +454,7 @@ export function App() {
         userId: registeredLearner.id,
         reviews: [
           {
-            wordId: registeredSession.wordCards[0]?.wordId ?? 'word_shkola',
+            wordId: registeredSession.wordCards[0]?.wordId ?? '',
             answerQuality: 'easy',
             responseMs: 3200,
           },
@@ -487,7 +500,7 @@ export function App() {
 
     const task = createTeacherTask({
       teacherId: teacherUser.id,
-      title: `七年级上册第 ${featuredUnit.unit} 单元背词任务`,
+      title: `${featuredBookShortName}第 ${featuredUnit.unit} 单元背词任务`,
       vocabularyBookId: featuredBook.id,
       unit: featuredUnit.unit,
       dailyNewWordTarget: 2,
@@ -547,9 +560,13 @@ export function App() {
   }
 
   function simulateMistakeReview() {
+    if (!featuredMistakeWord) {
+      return
+    }
+
     const initial = createInitialWordProgress({
       userId: activeLearner?.id ?? 'guest_preview',
-      wordId: 'word_klass',
+      wordId: featuredMistakeWord.id,
       now: '2026-06-14T00:00:00.000Z',
     })
     const progress = applySrsReview({
@@ -705,7 +722,9 @@ export function App() {
 
         <article className="onboarding-panel">
           <div className="onboarding-copy">
-            <h3>七年级上册第 1 单元</h3>
+            <h3>
+              {featuredBookShortName}第 {featuredUnit?.unit ?? '1'} 单元
+            </h3>
             <p>按每日新词目标生成学习计划。</p>
           </div>
 
@@ -1034,8 +1053,8 @@ export function App() {
             <div>
               <h3>词库覆盖</h3>
               <p>
-                {vocabularyCatalog.length} 册 · 已导入 {importedVocabularyWordCount} 个词 ·{' '}
-                {pendingVocabularyBookCount} 册待导入
+                {vocabularyCatalog.length} 册 · {importedVocabularyWordCount} 个词
+                {pendingVocabularyBookCount > 0 ? ` · ${pendingVocabularyBookCount} 册待导入` : ''}
               </p>
             </div>
 

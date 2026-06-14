@@ -5,6 +5,7 @@ coverage/
 .env
 .env.*
 !.env.example
+Kimi_Agent_人教版俄语词汇CSV/
 playwright-report/
 test-results/
 .vite/

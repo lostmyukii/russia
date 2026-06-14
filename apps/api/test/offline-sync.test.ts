@@ -27,7 +27,7 @@ describe('offline sync API', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 1,
           reminderEnabled: true,
@@ -46,6 +46,10 @@ describe('offline sync API', () => {
     const session = studySessionSchema.parse(
       (sessionPayload as { studySession: unknown }).studySession,
     )
+    const firstWord = session.wordCards[0]
+
+    expect(firstWord).toBeDefined()
+
     const operation = {
       id: `offline_complete-${user.id}`,
       type: 'study_session_complete',
@@ -57,7 +61,7 @@ describe('offline sync API', () => {
         sessionId: session.id,
         request: {
           userId: user.id,
-          reviews: [{ wordId: 'word_shkola', answerQuality: 'good', responseMs: 4200 }],
+          reviews: [{ wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 4200 }],
         },
       },
       status: 'queued',

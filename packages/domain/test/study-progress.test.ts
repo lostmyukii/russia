@@ -37,7 +37,7 @@ describe('study session and teacher progress domain', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         reminderEnabled: true,
@@ -47,32 +47,32 @@ describe('study session and teacher progress domain', () => {
     }).studyPlan
 
     expect(createStudySessionFromPlan({ plan, now: '2026-06-14T00:00:00.000Z' })).toMatchObject({
-      id: 'session_guest_20260614000000_book_pep_ru_g7_a_20260614',
+      id: 'session_guest_20260614000000_book_pep_ru_g7_full_20260614',
       userId: 'guest_20260614000000',
       status: 'active',
       wordCards: [
         {
-          lemma: 'школа',
-          stressedLemma: 'шко́ла',
-          definitionZh: '学校',
-          grammarHint: '阴性名词',
+          lemma: 'а',
+          stressedLemma: 'а',
+          definitionZh: '而；可是',
+          grammarHint: 'conjunction',
         },
         {
-          lemma: 'класс',
-          definitionZh: '班级；教室',
+          lemma: 'дом',
+          definitionZh: '房子；家',
           grammarHint: '阳性名词',
         },
       ],
       recallPrompts: [
         {
           promptType: 'ru_to_zh',
-          question: 'школа',
-          correctAnswer: '学校',
+          question: 'а',
+          correctAnswer: '而；可是',
         },
         {
           promptType: 'ru_to_zh',
-          question: 'класс',
-          correctAnswer: '班级；教室',
+          question: 'дом',
+          correctAnswer: '房子；家',
         },
       ],
     })
@@ -87,7 +87,7 @@ describe('study session and teacher progress domain', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         reminderEnabled: true,
@@ -100,7 +100,7 @@ describe('study session and teacher progress domain', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         reminderEnabled: true,
@@ -116,14 +116,21 @@ describe('study session and teacher progress domain', () => {
       plan: registeredPlan,
       now: '2026-06-14T00:03:00.000Z',
     })
+    const guestFirstWord = guestSession.wordCards[0]
+    const guestSecondWord = guestSession.wordCards[1]
+    const registeredFirstWord = registeredSession.wordCards[0]
+
+    expect(guestFirstWord).toBeDefined()
+    expect(guestSecondWord).toBeDefined()
+    expect(registeredFirstWord).toBeDefined()
 
     const guestResult = completeStudySession({
       session: guestSession,
       request: {
         userId: guest.id,
         reviews: [
-          { wordId: 'word_shkola', answerQuality: 'good', responseMs: 5200 },
-          { wordId: 'word_klass', answerQuality: 'again', responseMs: 9000 },
+          { wordId: guestFirstWord!.wordId, answerQuality: 'good', responseMs: 5200 },
+          { wordId: guestSecondWord!.wordId, answerQuality: 'again', responseMs: 9000 },
         ],
       },
       now: '2026-06-14T00:05:00.000Z',
@@ -132,7 +139,7 @@ describe('study session and teacher progress domain', () => {
       session: registeredSession,
       request: {
         userId: registered.id,
-        reviews: [{ wordId: 'word_shkola', answerQuality: 'easy', responseMs: 3200 }],
+        reviews: [{ wordId: registeredFirstWord!.wordId, answerQuality: 'easy', responseMs: 3200 }],
       },
       now: '2026-06-14T00:06:00.000Z',
     })
@@ -149,9 +156,9 @@ describe('study session and teacher progress domain', () => {
         displayName: '登录学习者',
         accountType: 'registered',
         role: 'learner',
-        bookName: '人教版初中俄语七年级上册',
+        bookName: '人教版初中俄语七年级全一册',
         unit: '1',
-        plannedWordCount: 2,
+        plannedWordCount: 31,
         recitedWordCount: 1,
         masteredWordCount: 1,
         correctRate: 1,
@@ -162,9 +169,9 @@ describe('study session and teacher progress domain', () => {
         displayName: '访客学习者',
         accountType: 'guest',
         role: 'learner',
-        bookName: '人教版初中俄语七年级上册',
+        bookName: '人教版初中俄语七年级全一册',
         unit: '1',
-        plannedWordCount: 2,
+        plannedWordCount: 31,
         recitedWordCount: 2,
         masteredWordCount: 1,
         correctRate: 0.5,

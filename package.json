@@ -19,6 +19,7 @@
     "db:migrate": "pnpm --filter @russian-wordscodex/api db:migrate",
     "db:deploy": "pnpm --filter @russian-wordscodex/api db:deploy",
     "db:seed": "pnpm --filter @russian-wordscodex/api db:seed",
+    "vocabulary:generate": "pnpm --filter @russian-wordscodex/import-vocabulary generate:domain",
     "vocabulary:validate": "pnpm --filter @russian-wordscodex/import-vocabulary validate",
     "release:check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm db:validate && pnpm vocabulary:validate scripts/import-vocabulary/fixtures/pep-russian-sample.csv && pnpm test:e2e"
   },

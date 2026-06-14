@@ -40,7 +40,7 @@ describe('launch readiness domain', () => {
       authorization: 'Bearer secret-token',
       profile: {
         phone: '13800000000',
-        targetBook: '七年级上册',
+        targetBook: '七年级全一册',
       },
     })
 
@@ -50,7 +50,7 @@ describe('launch readiness domain', () => {
       authorization: '[REDACTED]',
       profile: {
         phone: '[REDACTED]',
-        targetBook: '七年级上册',
+        targetBook: '七年级全一册',
       },
     })
   })

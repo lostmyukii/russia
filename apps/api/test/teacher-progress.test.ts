@@ -49,7 +49,7 @@ describe('teacher progress API', () => {
           preferences: {
             educationStage: 'junior',
             grade: 'g7',
-            bookId: 'book_pep_ru_g7_a',
+            bookId: 'book_pep_ru_g7_full',
             unit: '1',
             dailyNewWordTarget: 2,
             reminderEnabled: true,
@@ -74,6 +74,11 @@ describe('teacher progress API', () => {
         (sessionPayload as { studySession: unknown }).studySession,
       )
       const sessionId = session.id
+      const firstWord = session.wordCards[0]
+      const secondWord = session.wordCards[1]
+
+      expect(firstWord).toBeDefined()
+      expect(secondWord).toBeDefined()
 
       const completeResponse = await app.inject({
         method: 'POST',
@@ -86,10 +91,10 @@ describe('teacher progress API', () => {
           reviews:
             user.accountType === 'guest'
               ? [
-                  { wordId: 'word_shkola', answerQuality: 'good', responseMs: 5200 },
-                  { wordId: 'word_klass', answerQuality: 'again', responseMs: 9000 },
+                  { wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 5200 },
+                  { wordId: secondWord!.wordId, answerQuality: 'again', responseMs: 9000 },
                 ]
-              : [{ wordId: 'word_shkola', answerQuality: 'easy', responseMs: 3200 }],
+              : [{ wordId: firstWord!.wordId, answerQuality: 'easy', responseMs: 3200 }],
         },
       })
 

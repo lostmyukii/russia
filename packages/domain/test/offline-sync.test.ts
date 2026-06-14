@@ -21,7 +21,7 @@ describe('offline sync domain', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 1,
         reminderEnabled: true,
@@ -30,6 +30,10 @@ describe('offline sync domain', () => {
       now,
     }).studyPlan
     const session = createStudySessionFromPlan({ plan, now })
+    const firstWord = session.wordCards[0]
+
+    expect(firstWord).toBeDefined()
+
     const pack = createOfflineLearningPack({ session, now })
     const operation = createOfflineSyncOperation({
       type: 'study_session_complete',
@@ -40,7 +44,7 @@ describe('offline sync domain', () => {
         sessionId: session.id,
         request: {
           userId: user.id,
-          reviews: [{ wordId: 'word_shkola', answerQuality: 'good', responseMs: 4200 }],
+          reviews: [{ wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 4200 }],
         },
       },
       now: '2026-06-14T00:10:00.000Z',
@@ -55,9 +59,9 @@ describe('offline sync domain', () => {
     })
 
     expect(pack).toMatchObject({
-      id: `pack_${user.id}_book_pep_ru_g7_a_1`,
+      id: `pack_${user.id}_book_pep_ru_g7_full_1`,
       expiresAt: '2026-06-17T00:00:00.000Z',
-      wordCards: [{ lemma: 'школа' }],
+      wordCards: [{ lemma: 'а' }],
     })
     expect(getQueuedOfflineSyncOperations([failed])).toEqual([failed])
     expect(

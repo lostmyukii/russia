@@ -11,7 +11,7 @@ import {
 describe('offline sync contracts', () => {
   it('validates cached learning packs, queued operations and sync results', () => {
     const payload = offlineStudySessionCompletePayloadSchema.parse({
-      sessionId: 'session_guest_20260614000000_book_pep_ru_g7_a_20260614',
+      sessionId: 'session_guest_20260614000000_book_pep_ru_g7_full_20260614',
       request: {
         userId: 'guest_20260614000000',
         reviews: [{ wordId: 'word_shkola', answerQuality: 'good', responseMs: 4200 }],
@@ -23,7 +23,7 @@ describe('offline sync contracts', () => {
       type: 'study_session_complete',
       userId: 'guest_20260614000000',
       endpoint:
-        '/api/v1/study-sessions/session_guest_20260614000000_book_pep_ru_g7_a_20260614/complete',
+        '/api/v1/study-sessions/session_guest_20260614000000_book_pep_ru_g7_full_20260614/complete',
       method: 'POST',
       idempotencyKey: 'complete-guest_20260614000000',
       payload,
@@ -35,9 +35,9 @@ describe('offline sync contracts', () => {
 
     expect(
       offlineLearningPackSchema.parse({
-        id: 'pack_guest_20260614000000_book_pep_ru_g7_a_1',
+        id: 'pack_guest_20260614000000_book_pep_ru_g7_full_1',
         userId: 'guest_20260614000000',
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         sessionId: payload.sessionId,
         wordCards: [
@@ -65,7 +65,7 @@ describe('offline sync contracts', () => {
         expiresAt: '2026-06-17T00:00:00.000Z',
       }),
     ).toMatchObject({
-      vocabularyBookId: 'book_pep_ru_g7_a',
+      vocabularyBookId: 'book_pep_ru_g7_full',
       unit: '1',
     })
     expect(offlineSyncRequestSchema.parse({ operations: [operation] })).toMatchObject({

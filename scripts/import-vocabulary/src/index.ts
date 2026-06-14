@@ -38,6 +38,7 @@ export type VocabularyImportDryRun = {
 
 export function parseVocabularyCsv(csv: string): VocabularyImportDryRun {
   const parsedRows = parse<RawVocabularyCsvRow>(csv, {
+    bom: true,
     columns: true,
     skip_empty_lines: true,
     trim: true,

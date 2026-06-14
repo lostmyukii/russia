@@ -20,7 +20,7 @@ describe('leaderboard and check-in domain', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         reminderEnabled: true,
@@ -29,13 +29,19 @@ describe('leaderboard and check-in domain', () => {
       now,
     }).studyPlan
     const session = createStudySessionFromPlan({ plan, now })
+    const firstWord = session.wordCards[0]
+    const secondWord = session.wordCards[1]
+
+    expect(firstWord).toBeDefined()
+    expect(secondWord).toBeDefined()
+
     const result = completeStudySession({
       session,
       request: {
         userId: user.id,
         reviews: [
-          { wordId: 'word_shkola', answerQuality: 'good', responseMs: 4200 },
-          { wordId: 'word_klass', answerQuality: 'hard', responseMs: 7300 },
+          { wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 4200 },
+          { wordId: secondWord!.wordId, answerQuality: 'hard', responseMs: 7300 },
         ],
       },
       now,
@@ -74,7 +80,7 @@ describe('leaderboard and check-in domain', () => {
         userId: user.id,
         sessionId: session.id,
         wordId: null,
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         eventType: 'new_word_mastered',
         scoreDelta: 10,
         wordCount: 1,
@@ -86,7 +92,7 @@ describe('leaderboard and check-in domain', () => {
         userId: user.id,
         sessionId: session.id,
         wordId: null,
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         eventType: 'review_completed',
         scoreDelta: 3,
         wordCount: 1,
@@ -114,7 +120,7 @@ describe('leaderboard and check-in domain', () => {
         scoreEvents,
         checkins: [checkin],
         now,
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
       }),
     ).toHaveLength(1)
     expect(dashboard).toMatchObject({

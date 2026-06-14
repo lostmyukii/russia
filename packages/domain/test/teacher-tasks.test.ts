@@ -24,7 +24,7 @@ describe('teacher class tasks', () => {
       preferences: {
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         reminderEnabled: true,
@@ -33,19 +33,23 @@ describe('teacher class tasks', () => {
       now,
     }).studyPlan
     const session = createStudySessionFromPlan({ plan, now })
+    const firstWord = session.wordCards[0]
+
+    expect(firstWord).toBeDefined()
+
     const result = completeStudySession({
       session,
       request: {
         userId: learner.id,
-        reviews: [{ wordId: 'word_shkola', answerQuality: 'easy', responseMs: 3200 }],
+        reviews: [{ wordId: firstWord!.wordId, answerQuality: 'easy', responseMs: 3200 }],
       },
       now,
     })
 
     const task = createTeacherTask({
       teacherId: teacher.id,
-      title: '七年级上册第 1 单元背词任务',
-      vocabularyBookId: 'book_pep_ru_g7_a',
+      title: '七年级全一册第 1 单元背词任务',
+      vocabularyBookId: 'book_pep_ru_g7_full',
       unit: '1',
       dailyNewWordTarget: 2,
       dueDate: '2026-06-21',
@@ -77,18 +81,18 @@ describe('teacher class tasks', () => {
       accountType: 'registered',
     })
     expect(task).toMatchObject({
-      id: 'task_teacher_demo_ru_book_pep_ru_g7_a_unit_1',
+      id: 'task_teacher_demo_ru_book_pep_ru_g7_full_unit_1',
       assignedStudentIds: [student.id],
       status: 'active',
     })
     expect(overview.students).toEqual([
       {
         student,
-        assignedWordCount: 2,
+        assignedWordCount: 31,
         recitedWordCount: 1,
         masteredWordCount: 1,
         correctRate: 1,
-        completionRate: 0.5,
+        completionRate: 1 / 31,
         evaluationRating: 'great',
         evaluationComment: '词义掌握稳定，继续保持。',
       },

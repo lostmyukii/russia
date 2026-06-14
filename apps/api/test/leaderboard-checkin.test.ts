@@ -28,7 +28,7 @@ describe('leaderboard and check-in API', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 2,
           reminderEnabled: true,
@@ -47,6 +47,12 @@ describe('leaderboard and check-in API', () => {
     const session = studySessionSchema.parse(
       (sessionPayload as { studySession: unknown }).studySession,
     )
+    const firstWord = session.wordCards[0]
+    const secondWord = session.wordCards[1]
+
+    expect(firstWord).toBeDefined()
+    expect(secondWord).toBeDefined()
+
     const completeResponse = await app.inject({
       method: 'POST',
       url: `/api/v1/study-sessions/${session.id}/complete`,
@@ -56,8 +62,8 @@ describe('leaderboard and check-in API', () => {
       payload: {
         userId: user.id,
         reviews: [
-          { wordId: 'word_shkola', answerQuality: 'good', responseMs: 4200 },
-          { wordId: 'word_klass', answerQuality: 'hard', responseMs: 7300 },
+          { wordId: firstWord!.wordId, answerQuality: 'good', responseMs: 4200 },
+          { wordId: secondWord!.wordId, answerQuality: 'hard', responseMs: 7300 },
         ],
       },
     })

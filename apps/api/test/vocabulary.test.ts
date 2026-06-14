@@ -16,22 +16,22 @@ describe('vocabulary API', () => {
     expect(response.statusCode).toBe(200)
     const body: { books: VocabularyBook[] } = response.json()
 
-    expect(body.books).toHaveLength(6)
+    expect(body.books).toHaveLength(3)
     expect(body.books).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          slug: 'pep-ru-junior-g7-a',
-          name: '人教版初中俄语七年级上册',
+          slug: 'pep-ru-junior-g7-full',
+          name: '人教版初中俄语七年级全一册',
           publisher: 'pep',
           educationStage: 'junior',
-          wordCount: 2,
+          wordCount: 461,
         }),
         expect.objectContaining({
-          slug: 'pep-ru-junior-g9-b',
-          name: '人教版初中俄语九年级下册',
+          slug: 'pep-ru-junior-g9-full',
+          name: '人教版初中俄语九年级全一册',
           publisher: 'pep',
           educationStage: 'junior',
-          wordCount: 0,
+          wordCount: 384,
         }),
       ]),
     )
@@ -42,20 +42,30 @@ describe('vocabulary API', () => {
 
     const response = await app.inject({
       method: 'GET',
-      url: '/api/v1/vocabulary-books/book_pep_ru_g7_a/units',
+      url: '/api/v1/vocabulary-books/book_pep_ru_g7_full/units',
     })
 
     expect(response.statusCode).toBe(200)
-    expect(response.json()).toEqual({
-      bookId: 'book_pep_ru_g7_a',
-      units: [
-        {
-          unit: '1',
-          unitTitle: '授权教材第1单元',
-          wordCount: 2,
-          lessons: [{ lesson: '1', wordCount: 2 }],
-        },
-      ],
-    })
+    const body: { bookId: string; units: unknown[] } = response.json()
+
+    expect(body.bookId).toBe('book_pep_ru_g7_full')
+    expect(body.units).toHaveLength(10)
+    expect(body.units.slice(0, 2)).toEqual([
+      {
+        unit: '0',
+        unitTitle: '预备单元',
+        wordCount: 111,
+        lessons: [{ lesson: '0', wordCount: 111 }],
+      },
+      {
+        unit: '1',
+        unitTitle: '第 1 单元',
+        wordCount: 31,
+        lessons: [
+          { lesson: '1', wordCount: 8 },
+          { lesson: '2', wordCount: 23 },
+        ],
+      },
+    ])
   })
 })

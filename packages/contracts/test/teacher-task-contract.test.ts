@@ -22,10 +22,10 @@ describe('teacher task contracts', () => {
     })
 
     const task = teacherTaskSchema.parse({
-      id: 'task_teacher_demo_ru_book_pep_ru_g7_a_unit_1',
+      id: 'task_teacher_demo_ru_book_pep_ru_g7_full_unit_1',
       teacherId: 'teacher_demo_ru',
-      title: '七年级上册第 1 单元背词任务',
-      vocabularyBookId: 'book_pep_ru_g7_a',
+      title: '七年级全一册第 1 单元背词任务',
+      vocabularyBookId: 'book_pep_ru_g7_full',
       unit: '1',
       dailyNewWordTarget: 2,
       dueDate: '2026-06-21',
@@ -62,7 +62,7 @@ describe('teacher task contracts', () => {
       }),
     ).toMatchObject({
       task: {
-        title: '七年级上册第 1 单元背词任务',
+        title: '七年级全一册第 1 单元背词任务',
       },
       students: [
         {
@@ -89,8 +89,8 @@ describe('teacher task contracts', () => {
     expect(
       createTeacherTaskRequestSchema.parse({
         teacherId: 'teacher_demo_ru',
-        title: '七年级上册第 1 单元背词任务',
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        title: '七年级全一册第 1 单元背词任务',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         dueDate: '2026-06-21',
@@ -104,7 +104,7 @@ describe('teacher task contracts', () => {
     expect(
       createTeacherEvaluationRequestSchema.parse({
         teacherId: 'teacher_demo_ru',
-        taskId: 'task_teacher_demo_ru_book_pep_ru_g7_a_unit_1',
+        taskId: 'task_teacher_demo_ru_book_pep_ru_g7_full_unit_1',
         studentId: 'student_teacher_demo_ru_learner_demo_20260614000000',
         rating: 'great',
         comment: '词义掌握稳定，继续保持。',

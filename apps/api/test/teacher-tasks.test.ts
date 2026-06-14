@@ -36,7 +36,7 @@ describe('teacher task API', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 2,
           reminderEnabled: true,
@@ -58,6 +58,10 @@ describe('teacher task API', () => {
     const session = studySessionSchema.parse(
       (sessionPayload as { studySession: unknown }).studySession,
     )
+    const firstWord = session.wordCards[0]
+
+    expect(firstWord).toBeDefined()
+
     const completeResponse = await app.inject({
       method: 'POST',
       url: `/api/v1/study-sessions/${session.id}/complete`,
@@ -66,7 +70,7 @@ describe('teacher task API', () => {
       },
       payload: {
         userId: learner.id,
-        reviews: [{ wordId: 'word_shkola', answerQuality: 'easy', responseMs: 3200 }],
+        reviews: [{ wordId: firstWord!.wordId, answerQuality: 'easy', responseMs: 3200 }],
       },
     })
 
@@ -94,8 +98,8 @@ describe('teacher task API', () => {
       url: '/api/v1/teacher/tasks',
       payload: {
         teacherId: 'teacher_demo_ru',
-        title: '七年级上册第 1 单元背词任务',
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        title: '七年级全一册第 1 单元背词任务',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 2,
         dueDate: '2026-06-21',

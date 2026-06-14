@@ -23,9 +23,9 @@ describe('leaderboard and check-in contracts', () => {
     const scoreEvent = studyScoreEventSchema.parse({
       id: 'score_complete-guest_20260614000000_mastered',
       userId: 'guest_20260614000000',
-      sessionId: 'session_guest_20260614000000_book_pep_ru_g7_a_20260614',
+      sessionId: 'session_guest_20260614000000_book_pep_ru_g7_full_20260614',
       wordId: null,
-      bookId: 'book_pep_ru_g7_a',
+      bookId: 'book_pep_ru_g7_full',
       eventType: 'new_word_mastered',
       scoreDelta: 10,
       wordCount: 1,
@@ -43,7 +43,7 @@ describe('leaderboard and check-in contracts', () => {
       masteredWordCount: 1,
       reviewCompletionRate: 1,
       streakDays: checkin.streakDays,
-      bookId: 'book_pep_ru_g7_a',
+      bookId: 'book_pep_ru_g7_full',
       classId: null,
       updatedAt: '2026-06-14T00:10:00.000Z',
     })

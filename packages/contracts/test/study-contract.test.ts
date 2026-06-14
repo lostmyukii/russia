@@ -26,10 +26,10 @@ describe('study and teacher progress contracts', () => {
 
     expect(
       studySessionSchema.parse({
-        id: 'session_guest_20260614000000_book_pep_ru_g7_a_20260614',
+        id: 'session_guest_20260614000000_book_pep_ru_g7_full_20260614',
         userId: 'guest_20260614000000',
-        planId: 'plan_guest_20260614000000_book_pep_ru_g7_a',
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        planId: 'plan_guest_20260614000000_book_pep_ru_g7_full',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         status: 'active',
         wordCards: [
@@ -77,7 +77,7 @@ describe('study and teacher progress contracts', () => {
 
     expect(
       studySessionResultSchema.parse({
-        sessionId: 'session_guest_20260614000000_book_pep_ru_g7_a_20260614',
+        sessionId: 'session_guest_20260614000000_book_pep_ru_g7_full_20260614',
         userId: 'guest_20260614000000',
         status: 'completed',
         studiedWordCount: 1,
@@ -96,7 +96,7 @@ describe('study and teacher progress contracts', () => {
         displayName: '访客学习者',
         accountType: 'guest',
         role: 'learner',
-        bookName: '人教版初中俄语七年级上册',
+        bookName: '人教版初中俄语七年级全一册',
         unit: '1',
         plannedWordCount: 2,
         recitedWordCount: 1,

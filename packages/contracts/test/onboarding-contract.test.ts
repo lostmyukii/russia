@@ -27,7 +27,7 @@ describe('onboarding contracts', () => {
       userPreferencesSchema.parse({
         educationStage: 'junior',
         grade: 'g7',
-        bookId: 'book_pep_ru_g7_a',
+        bookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 10,
         reminderEnabled: true,
@@ -43,7 +43,7 @@ describe('onboarding contracts', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 10,
           reminderEnabled: true,
@@ -57,9 +57,9 @@ describe('onboarding contracts', () => {
 
     expect(
       studyPlanSchema.parse({
-        id: 'plan_guest_20260614_book_pep_ru_g7_a',
+        id: 'plan_guest_20260614_book_pep_ru_g7_full',
         userId: 'guest_20260614',
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 10,
         dailyReviewLimit: 30,

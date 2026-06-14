@@ -33,7 +33,7 @@ describe('guest onboarding API', () => {
         preferences: {
           educationStage: 'junior',
           grade: 'g7',
-          bookId: 'book_pep_ru_g7_a',
+          bookId: 'book_pep_ru_g7_full',
           unit: '1',
           dailyNewWordTarget: 1,
           reminderEnabled: true,
@@ -46,7 +46,7 @@ describe('guest onboarding API', () => {
     expect(planResponse.json()).toMatchObject({
       studyPlan: {
         userId,
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
         dailyNewWordTarget: 1,
         status: 'active',
@@ -62,7 +62,7 @@ describe('guest onboarding API', () => {
     expect(activeResponse.json()).toMatchObject({
       studyPlan: {
         userId,
-        vocabularyBookId: 'book_pep_ru_g7_a',
+        vocabularyBookId: 'book_pep_ru_g7_full',
         unit: '1',
       },
     })

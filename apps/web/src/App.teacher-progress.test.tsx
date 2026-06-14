@@ -17,6 +17,6 @@ describe('teacher progress dashboard', () => {
     expect(screen.getByText('访客学习者')).toBeInTheDocument()
     expect(screen.getByText(/登录者/)).toBeInTheDocument()
     expect(screen.getByText(/游客/)).toBeInTheDocument()
-    expect(screen.getAllByText('已背 1/2 个词')).toHaveLength(2)
+    expect(screen.getAllByText('已背 1/31 个词')).toHaveLength(2)
   })
 })

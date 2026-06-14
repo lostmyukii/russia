@@ -8,11 +8,14 @@ import {
   getDueReviewQueue,
 } from '../src/index'
 
+const FIRST_UNIT_WORD_ID = 'word_g7_5762776de4d9'
+const SECOND_UNIT_WORD_ID = 'word_g7_baea78ac8b17'
+
 describe('SRS review and mistakes domain', () => {
   it('moves an incorrect answer into the mistake queue with a 10 minute review', () => {
     const initial = createInitialWordProgress({
       userId: 'guest_20260614000000',
-      wordId: 'word_klass',
+      wordId: SECOND_UNIT_WORD_ID,
       now: '2026-06-14T00:00:00.000Z',
     })
 
@@ -26,7 +29,7 @@ describe('SRS review and mistakes domain', () => {
       }),
     ).toEqual({
       userId: 'guest_20260614000000',
-      wordId: 'word_klass',
+      wordId: SECOND_UNIT_WORD_ID,
       masteryState: 'mistake',
       repetitions: 1,
       consecutiveCorrect: 0,
@@ -45,7 +48,7 @@ describe('SRS review and mistakes domain', () => {
   it('calculates SRS intervals for hard, good, and easy answers', () => {
     const initial = createInitialWordProgress({
       userId: 'guest_20260614000000',
-      wordId: 'word_shkola',
+      wordId: FIRST_UNIT_WORD_ID,
       now: '2026-06-14T00:00:00.000Z',
     })
 
@@ -96,7 +99,7 @@ describe('SRS review and mistakes domain', () => {
     const dueMistake = applySrsReview({
       previous: createInitialWordProgress({
         userId: 'guest_20260614000000',
-        wordId: 'word_klass',
+        wordId: SECOND_UNIT_WORD_ID,
         now: '2026-06-14T00:00:00.000Z',
       }),
       answerQuality: 'again',
@@ -107,7 +110,7 @@ describe('SRS review and mistakes domain', () => {
     const ordinaryReview = applySrsReview({
       previous: createInitialWordProgress({
         userId: 'guest_20260614000000',
-        wordId: 'word_shkola',
+        wordId: FIRST_UNIT_WORD_ID,
         now: '2026-06-12T00:00:00.000Z',
       }),
       answerQuality: 'good',
@@ -124,18 +127,18 @@ describe('SRS review and mistakes domain', () => {
     ).toEqual([
       {
         userId: 'guest_20260614000000',
-        wordId: 'word_klass',
-        lemma: 'класс',
-        definitionZh: '班级；教室',
+        wordId: SECOND_UNIT_WORD_ID,
+        lemma: 'дом',
+        definitionZh: '房子；家',
         masteryState: 'mistake',
         nextReviewAt: '2026-06-14T00:10:00.000Z',
         priority: 'mistake',
       },
       {
         userId: 'guest_20260614000000',
-        wordId: 'word_shkola',
-        lemma: 'школа',
-        definitionZh: '学校',
+        wordId: FIRST_UNIT_WORD_ID,
+        lemma: 'а',
+        definitionZh: '而；可是',
         masteryState: 'learning',
         nextReviewAt: '2026-06-14T00:00:00.000Z',
         priority: 'due',
@@ -147,7 +150,7 @@ describe('SRS review and mistakes domain', () => {
     const mistake = applySrsReview({
       previous: createInitialWordProgress({
         userId: 'guest_20260614000000',
-        wordId: 'word_klass',
+        wordId: SECOND_UNIT_WORD_ID,
         now: '2026-06-14T00:00:00.000Z',
       }),
       answerQuality: 'again',
