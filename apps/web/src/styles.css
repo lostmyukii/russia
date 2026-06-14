@@ -188,7 +188,8 @@ p {
   font-weight: 760;
 }
 
-.form-field input {
+.form-field input,
+.form-field select {
   width: 100%;
   min-height: 50px;
   padding: 0 15px;
@@ -200,7 +201,12 @@ p {
   outline: none;
 }
 
-.form-field input:focus {
+.form-field select {
+  appearance: none;
+}
+
+.form-field input:focus,
+.form-field select:focus {
   border-color: rgba(0, 122, 255, 0.48);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.14);
 }
@@ -232,6 +238,20 @@ p {
 .selected-book-card {
   gap: 6px;
   padding: 16px;
+}
+
+.selected-book-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.selected-book-heading a {
+  min-height: 32px;
+  color: var(--blue);
+  font-weight: 760;
+  text-decoration: none;
 }
 
 .selected-book-card span,

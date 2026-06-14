@@ -17,6 +17,19 @@ describe('onboarding flow', () => {
     expect(screen.getByText(/3956/)).toBeInTheDocument()
   })
 
+  it('lets a learner change the selected book before creating a plan', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.change(screen.getByLabelText('选择词库'), {
+      target: { value: 'pep-ru-senior-selective-4' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+
+    expect(screen.getByRole('heading', { name: '今日任务' })).toBeInTheDocument()
+    expect(screen.getByText(/人教版高中俄语选择性必修第四册/)).toBeInTheDocument()
+  })
+
   it('starts a real recitation card flow after generating a plan', () => {
     render(<App />)
 

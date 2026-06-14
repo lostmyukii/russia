@@ -67,11 +67,14 @@ export function App() {
   const vocabularyCatalog = pepRussianVocabularyBooks
   const [routePath, setRoutePath] = useState(getInitialRoutePath)
   const [selectedBookSlug, setSelectedBookSlug] = useState<string | null>(null)
+  const [selectedUnit, setSelectedUnit] = useState<string | null>(null)
   const [bookSearch, setBookSearch] = useState('')
   const featuredBook =
     vocabularyCatalog.find((book) => book.slug === selectedBookSlug) ?? vocabularyCatalog[0]
   const featuredUnits = featuredBook ? groupRussianWordsByUnit(featuredBook.slug) : []
-  const featuredUnit = featuredUnits.find((unit) => unit.unit !== '0') ?? featuredUnits[0]
+  const defaultFeaturedUnit = featuredUnits.find((unit) => unit.unit !== '0') ?? featuredUnits[0]
+  const featuredUnit =
+    featuredUnits.find((unit) => unit.unit === selectedUnit) ?? defaultFeaturedUnit
   const featuredBookShortName =
     featuredBook?.name.replace(/^人教版(初中|高中)俄语/, '') ?? '七年级全一册'
   const featuredMistakeWord =
@@ -197,8 +200,18 @@ export function App() {
     setBookSearch(event.target.value)
   }
 
+  function updateSelectedBook(event: ChangeEvent<HTMLSelectElement>) {
+    setSelectedBookSlug(event.target.value)
+    setSelectedUnit(null)
+  }
+
+  function updateSelectedUnit(event: ChangeEvent<HTMLSelectElement>) {
+    setSelectedUnit(event.target.value)
+  }
+
   function chooseVocabularyBook(bookSlug: string) {
     setSelectedBookSlug(bookSlug)
+    setSelectedUnit(null)
     navigateTo('/onboarding')
   }
 
@@ -748,6 +761,8 @@ export function App() {
     setPhoneVerificationCode(null)
     setPhoneLoginMessage(null)
     setActivePlan(null)
+    setSelectedBookSlug(null)
+    setSelectedUnit(null)
     setStudySession(null)
     setStudyResult(null)
     setCurrentStudyCardIndex(0)
@@ -906,7 +921,12 @@ export function App() {
             <>
               {featuredBook ? (
                 <div className="selected-book-card">
-                  <span>已选择词库</span>
+                  <div className="selected-book-heading">
+                    <span>已选择词库</span>
+                    <a href="/books" onClick={navigateOnClick('/books')}>
+                      更换词库
+                    </a>
+                  </div>
                   <strong>{featuredBook.name}</strong>
                   <p>
                     {featuredBook.wordCount} 个词 · 第 {featuredUnit?.unit ?? '1'} 单元{' '}
@@ -916,6 +936,37 @@ export function App() {
               ) : null}
 
               <div className="plan-form" aria-label="学习计划设置">
+                <div className="form-field">
+                  <label htmlFor="onboarding-book">选择词库</label>
+                  <select
+                    id="onboarding-book"
+                    value={featuredBook?.slug ?? ''}
+                    onChange={updateSelectedBook}
+                  >
+                    {vocabularyCatalog.map((book) => (
+                      <option value={book.slug} key={book.slug}>
+                        {book.name} · {book.wordCount} 个词
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="onboarding-unit">选择单元</label>
+                  <select
+                    id="onboarding-unit"
+                    value={featuredUnit?.unit ?? ''}
+                    onChange={updateSelectedUnit}
+                    disabled={featuredUnits.length === 0}
+                  >
+                    {featuredUnits.map((unit) => (
+                      <option value={unit.unit} key={unit.unit}>
+                        第 {unit.unit} 单元 · {unit.unitTitle} · {unit.wordCount} 个词
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="form-field">
                   <label htmlFor="daily-target">每日新词量</label>
                   <input id="daily-target" readOnly value="1" />
