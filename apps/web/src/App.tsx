@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react'
 
 import {
   addStudentToTeacher,
@@ -37,10 +37,12 @@ import {
   type MistakeEntry,
   type OfflineLearningPack,
   type OfflineSyncOperation,
+  type RussianWord,
   type StudyPlan,
   type StudyScoreEvent,
   type StudySession,
   type StudySessionResult,
+  type StudyWordCard,
   type TeacherStudent,
   type TeacherTask,
   type TeacherTaskOverview,
@@ -82,6 +84,8 @@ export function App() {
   const [selectedBookSlug, setSelectedBookSlug] = useState<string | null>(null)
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null)
   const [dailyNewWordTargetInput, setDailyNewWordTargetInput] = useState('1')
+  const [targetDateInput, setTargetDateInput] = useState('')
+  const targetDateInputRef = useRef<HTMLInputElement | null>(null)
   const [bookSearch, setBookSearch] = useState('')
   const featuredBook =
     vocabularyCatalog.find((book) => book.slug === selectedBookSlug) ?? vocabularyCatalog[0]
@@ -228,6 +232,10 @@ export function App() {
     setDailyNewWordTargetInput(event.target.value)
   }
 
+  function updateTargetDate(event: ChangeEvent<HTMLInputElement>) {
+    setTargetDateInput(event.target.value)
+  }
+
   function chooseVocabularyBook(bookSlug: string) {
     setSelectedBookSlug(bookSlug)
     setSelectedUnit(null)
@@ -272,6 +280,7 @@ export function App() {
     const now = new Date().toISOString()
     const user = activeLearner ?? createGuestLearner({ now })
     const dailyNewWordTarget = clampDailyNewWordTarget(dailyNewWordTargetInput, dailyNewWordLimit)
+    const targetDate = targetDateInputRef.current?.value.trim() || targetDateInput.trim() || null
     const result = createStudyPlanFromOnboarding({
       userId: user.id,
       preferences: {
@@ -282,7 +291,7 @@ export function App() {
         dailyNewWordTarget,
         reminderEnabled: true,
       },
-      targetDate: null,
+      targetDate,
       now,
     })
 
@@ -305,6 +314,7 @@ export function App() {
     setWeeklyLeaderboard([])
     setBookLeaderboard([])
     setDailyNewWordTargetInput(String(dailyNewWordTarget))
+    setTargetDateInput(result.studyPlan.targetDate ?? '')
     setTeacherProgress([])
     setClassLearners([])
     setClassPlans([])
@@ -844,6 +854,15 @@ export function App() {
   const studyCards = studySession?.wordCards ?? []
   const currentStudyCard = studyCards[currentStudyCardIndex]
   const currentStudyCardNumber = currentStudyCard ? currentStudyCardIndex + 1 : 0
+  const currentRecallOptions = currentStudyCard ? buildRecallOptions(currentStudyCard) : []
+
+  function answerRecallOption(option: string) {
+    if (!currentStudyCard) {
+      return
+    }
+
+    answerStudyCard(option === currentStudyCard.definitionZh ? 'good' : 'again')
+  }
 
   if (routePath === '/') {
     return (
@@ -949,6 +968,7 @@ export function App() {
                 <p>
                   第 {activePlan.unit} 单元 · 每日新词 {activePlan.dailyNewWordTarget} 个
                 </p>
+                {activePlan.targetDate ? <p>目标日期 {activePlan.targetDate}</p> : null}
               </div>
               <a className="primary-action" href="/home" onClick={navigateOnClick('/home')}>
                 查看今日任务
@@ -1019,6 +1039,17 @@ export function App() {
                     可设置 1-{dailyNewWordLimit} 个，生成后会同步到今日任务。
                   </p>
                 </div>
+                <div className="form-field">
+                  <label htmlFor="target-date">目标日期</label>
+                  <input
+                    id="target-date"
+                    onChange={updateTargetDate}
+                    ref={targetDateInputRef}
+                    type="date"
+                    value={targetDateInput}
+                  />
+                  <p className="field-hint">可选；用于记录本单元计划的完成目标。</p>
+                </div>
                 <button
                   className="primary-action"
                   type="button"
@@ -1061,6 +1092,7 @@ export function App() {
               <p className="hero-copy">
                 {featuredBook.name} · 第 {activePlan.unit} 单元 · 每日新词{' '}
                 {activePlan.dailyNewWordTarget} 个
+                {activePlan.targetDate ? ` · 目标日期 ${activePlan.targetDate}` : ''}
               </p>
 
               <div className="today-summary-grid" aria-label="今日学习概览">
@@ -1215,9 +1247,12 @@ export function App() {
               </div>
 
               {!studyAnswerVisible ? (
-                <button className="primary-action" type="button" onClick={showStudyAnswer}>
-                  显示答案
-                </button>
+                <>
+                  <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  <button className="primary-action" type="button" onClick={showStudyAnswer}>
+                    显示答案
+                  </button>
+                </>
               ) : (
                 <>
                   <div className="meaning-list">
@@ -1838,9 +1873,12 @@ export function App() {
               </div>
 
               {!studyAnswerVisible ? (
-                <button className="secondary-action" type="button" onClick={showStudyAnswer}>
-                  显示答案
-                </button>
+                <>
+                  <RecallOptions options={currentRecallOptions} onSelect={answerRecallOption} />
+                  <button className="secondary-action" type="button" onClick={showStudyAnswer}>
+                    显示答案
+                  </button>
+                </>
               ) : (
                 <div className="study-answer" aria-live="polite">
                   <strong>{currentStudyCard.definitionZh}</strong>
@@ -2236,6 +2274,36 @@ function TeacherStudentCredentialsList({ students }: { students: TeacherStudent[
   )
 }
 
+function RecallOptions({
+  options,
+  onSelect,
+}: {
+  options: string[]
+  onSelect: (option: string) => void
+}) {
+  const optionLabels = ['A', 'B', 'C']
+
+  return (
+    <fieldset className="recall-options" aria-label="主动回忆选项">
+      <legend>主动回忆</legend>
+      <p>选出这个词的中文意思。</p>
+      <div className="recall-option-grid">
+        {options.map((option, index) => (
+          <button
+            className="recall-option"
+            type="button"
+            key={`${option}-${index}`}
+            onClick={() => onSelect(option)}
+          >
+            <span>{optionLabels[index]}</span>
+            {option}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 function formatErrorType(errorType: MistakeEntry['lastErrorType']): string {
   const errorTypeLabels = {
     meaning: '语义错误',
@@ -2264,6 +2332,47 @@ function clampDailyNewWordTarget(value: string, max: number): number {
   }
 
   return Math.min(Math.max(parsedValue, 1), max)
+}
+
+function buildRecallOptions(currentCard: StudyWordCard): string[] {
+  const currentWord = pepRussianWords.find((word) => word.id === currentCard.wordId)
+  const candidateWords: RussianWord[] = pepRussianWords.filter(
+    (word) =>
+      word.id !== currentCard.wordId && getRussianWordDefinition(word) !== currentCard.definitionZh,
+  )
+  const prioritizedWords: RussianWord[] = [
+    ...candidateWords.filter(
+      (word) => word.bookId === currentWord?.bookId && word.unit === currentWord?.unit,
+    ),
+    ...candidateWords.filter(
+      (word) => word.bookId === currentWord?.bookId && word.unit !== currentWord?.unit,
+    ),
+    ...candidateWords,
+  ]
+  const distractors: string[] = []
+
+  for (const word of prioritizedWords) {
+    const definition = getRussianWordDefinition(word)
+
+    if (definition && !distractors.includes(definition)) {
+      distractors.push(definition)
+    }
+
+    if (distractors.length === 2) {
+      break
+    }
+  }
+
+  const options: string[] = [currentCard.definitionZh, ...distractors]
+  const offset =
+    currentCard.wordId.split('').reduce((total, character) => total + character.charCodeAt(0), 0) %
+    options.length
+
+  return [...options.slice(offset), ...options.slice(0, offset)]
+}
+
+function getRussianWordDefinition(word: RussianWord): string | null {
+  return word.meanings[0]?.definitionZh ?? null
 }
 
 function getInitialRoutePath(): string {

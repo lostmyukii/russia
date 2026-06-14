@@ -46,6 +46,17 @@ describe('onboarding flow', () => {
     expect(screen.getByText('5 个')).toBeInTheDocument()
   })
 
+  it('keeps the learner selected target date in the generated plan', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.change(screen.getByLabelText('目标日期'), { target: { value: '2026-07-01' } })
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+
+    expect(screen.getByRole('heading', { name: '今日任务' })).toBeInTheDocument()
+    expect(screen.getByText(/目标日期\s+2026-07-01/)).toBeInTheDocument()
+  })
+
   it('starts a real recitation card flow after generating a plan', () => {
     render(<App />)
 
@@ -56,7 +67,8 @@ describe('onboarding flow', () => {
     expect(screen.getByRole('heading', { name: '今日背诵' })).toBeInTheDocument()
     expect(screen.getByText('词卡 1/1')).toBeInTheDocument()
     expect(screen.getByText('а')).toBeInTheDocument()
-    expect(screen.queryByText('而；可是')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '主动回忆选项' })).toBeInTheDocument()
+    expect(screen.queryByText('conjunction 而；可是')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '显示答案' }))
 
@@ -64,6 +76,22 @@ describe('onboarding flow', () => {
     expect(screen.getAllByText('conjunction').length).toBeGreaterThanOrEqual(1)
 
     fireEvent.click(screen.getByRole('button', { name: '掌握' }))
+
+    expect(screen.getByRole('heading', { name: '学习结果' })).toBeInTheDocument()
+    expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
+  })
+
+  it('lets a learner answer an active recall choice before revealing the answer', () => {
+    render(<App />)
+
+    enterAsGuest()
+    fireEvent.click(screen.getByRole('button', { name: '生成学习计划' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始今日学习' }))
+
+    expect(screen.getByRole('group', { name: '主动回忆选项' })).toBeInTheDocument()
+    expect(screen.queryByText('conjunction 而；可是')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /而；可是/ }))
 
     expect(screen.getByRole('heading', { name: '学习结果' })).toBeInTheDocument()
     expect(screen.getByText('已背 1 个词，掌握 1 个词')).toBeInTheDocument()
